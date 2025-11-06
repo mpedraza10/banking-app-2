@@ -27,15 +27,21 @@ export const paymentStatusEnum = pgEnum("payment_status", [
 ]);
 
 export const transactionStatusEnum = pgEnum("transaction_status", [
+  "Draft",
   "Pending",
+  "Posted",
   "Completed",
   "Failed",
+  "Cancelled",
   "Rolled Back"
 ]);
 
 export const transactionTypeEnum = pgEnum("transaction_type", [
   "ServicePayment",
-  "CardPayment"
+  "CardPayment",
+  "DiestelPayment",
+  "CashDeposit",
+  "CashWithdrawal"
 ]);
 
 export const denominationTypeEnum = pgEnum("denomination_type", [
@@ -176,16 +182,43 @@ export const cardPayments = pgTable("card_payments", {
 // Transactions table
 export const transactions = pgTable("transactions", {
   id: uuid("id").primaryKey().defaultRandom(),
-  transactionType: transactionTypeEnum("transaction_type").notNull(),
-  referenceId: uuid("reference_id").notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  status: transactionStatusEnum("status").notNull(),
-  userId: uuid("user_id").notNull().references(() => systemUsers.id),
-  customerId: uuid("customer_id").references(() => customers.id),
+  transactionNumber: text("transaction_number").notNull().unique(),
+  transactionType: text("transaction_type").notNull(),
+  transactionStatus: text("transaction_status").notNull().default("Draft"),
+  totalAmount: text("total_amount").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  userId: text("user_id").notNull(),
+  customerId: text("customer_id"),
   branchId: text("branch_id").notNull(),
-  externalReferenceId: text("external_reference_id"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  postedAt: timestamp("posted_at"),
+});
+
+// Transaction Items table
+export const transactionItems = pgTable("transaction_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  transactionId: uuid("transaction_id").notNull().references(() => transactions.id),
+  description: text("description").notNull(),
+  amount: text("amount").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  serviceId: text("service_id"),
+  referenceNumber: text("reference_number"),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Audit Logs table
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id"),
+  details: text("details"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow(),
 });
 
 // Cash Denominations table
@@ -213,12 +246,11 @@ export const cashDrawer = pgTable("cash_drawer", {
 // Receipts table
 export const receipts = pgTable("receipts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  transactionId: uuid("transaction_id").notNull().references(() => transactions.id),
+  transactionId: text("transaction_id").notNull(),
   receiptNumber: text("receipt_number").notNull().unique(),
-  originalPrint: boolean("original_print").notNull().default(true),
-  printedAt: timestamp("printed_at").notNull().defaultNow(),
-  userId: uuid("user_id").notNull().references(() => systemUsers.id),
-  receiptData: json("receipt_data").notNull(),
+  receiptData: text("receipt_data").notNull(),
+  printedAt: timestamp("printed_at").defaultNow(),
+  reprintCount: integer("reprint_count").notNull().default(0),
 });
 
 // Promotional Offers table
@@ -276,6 +308,14 @@ export type NewCardPayment = InferInsertModel<typeof cardPayments>;
 // Transactions
 export type Transaction = InferSelectModel<typeof transactions>;
 export type NewTransaction = InferInsertModel<typeof transactions>;
+
+// Transaction Items
+export type TransactionItem = InferSelectModel<typeof transactionItems>;
+export type NewTransactionItem = InferInsertModel<typeof transactionItems>;
+
+// Audit Logs
+export type AuditLog = InferSelectModel<typeof auditLogs>;
+export type NewAuditLog = InferInsertModel<typeof auditLogs>;
 
 // Cash Denominations
 export type CashDenomination = InferSelectModel<typeof cashDenominations>;
@@ -360,17 +400,17 @@ export const cardPaymentsRelations = relations(cardPayments, ({ one }) => ({
   }),
 }));
 
-export const transactionsRelations = relations(transactions, ({ one, many }) => ({
-  user: one(systemUsers, {
-    fields: [transactions.userId],
-    references: [systemUsers.id],
-  }),
-  customer: one(customers, {
-    fields: [transactions.customerId],
-    references: [customers.id],
-  }),
+export const transactionsRelations = relations(transactions, ({ many }) => ({
+  transactionItems: many(transactionItems),
   cashDenominations: many(cashDenominations),
   receipts: many(receipts),
+}));
+
+export const transactionItemsRelations = relations(transactionItems, ({ one }) => ({
+  transaction: one(transactions, {
+    fields: [transactionItems.transactionId],
+    references: [transactions.id],
+  }),
 }));
 
 export const cashDenominationsRelations = relations(cashDenominations, ({ one }) => ({
@@ -395,10 +435,6 @@ export const receiptsRelations = relations(receipts, ({ one }) => ({
   transaction: one(transactions, {
     fields: [receipts.transactionId],
     references: [transactions.id],
-  }),
-  user: one(systemUsers, {
-    fields: [receipts.userId],
-    references: [systemUsers.id],
   }),
 }));
 

@@ -315,17 +315,19 @@ export async function processCardPayment(
       .returning();
 
     // Create transaction record
+    const transactionNumber = `CP-${Date.now()}-${card.id.slice(0, 8)}`;
     const transaction = await db
       .insert(transactions)
       .values({
+        transactionNumber,
         transactionType: "CardPayment",
-        referenceId: payment[0].id,
+        transactionStatus: "Posted",
         totalAmount: paymentData.paymentAmount.toString(),
+        paymentMethod: "Cash",
         customerId: paymentData.customerId || null,
-        userId: paymentData.userId, // Note: This should be systemUsers.id in production
+        userId: paymentData.userId,
         branchId: paymentData.branchId,
-        status: "Completed",
-        completedAt: new Date(),
+        postedAt: new Date(),
       })
       .returning();
 
