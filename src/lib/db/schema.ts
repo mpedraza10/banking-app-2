@@ -267,6 +267,44 @@ export const promotionalOffers = pgTable("promotional_offers", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// System Configuration table
+export const systemConfiguration = pgTable("system_configuration", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  session_timeout_minutes: integer("session_timeout_minutes").notNull().default(15),
+  transaction_timeout_seconds: integer("transaction_timeout_seconds").notNull().default(120),
+  max_retry_attempts: integer("max_retry_attempts").notNull().default(3),
+  maintenance_mode: boolean("maintenance_mode").notNull().default(false),
+  default_receipt_copies: integer("default_receipt_copies").notNull().default(1),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  updated_by: text("updated_by").notNull(),
+});
+
+// Commission Rates table
+export const commissionRates = pgTable("commission_rates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  service_name: text("service_name").notNull(),
+  service_provider: text("service_provider").notNull(),
+  commission_type: text("commission_type").notNull(), // 'fixed' | 'percentage'
+  commission_value: decimal("commission_value", { precision: 10, scale: 4 }).notNull(),
+  is_active: boolean("is_active").notNull().default(true),
+  effective_date: date("effective_date").notNull(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  updated_by: text("updated_by").notNull(),
+});
+
+// Service Providers table
+export const serviceProviders = pgTable("service_providers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  provider_name: text("provider_name").notNull(),
+  service_type: text("service_type").notNull(),
+  api_endpoint: text("api_endpoint"),
+  timeout_seconds: integer("timeout_seconds").notNull().default(30),
+  retry_attempts: integer("retry_attempts").notNull().default(3),
+  is_active: boolean("is_active").notNull().default(true),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  updated_by: text("updated_by").notNull(),
+});
+
 // ==================== TYPE EXPORTS ====================
 
 // Users
@@ -332,6 +370,18 @@ export type NewReceipt = InferInsertModel<typeof receipts>;
 // Promotional Offers
 export type PromotionalOffer = InferSelectModel<typeof promotionalOffers>;
 export type NewPromotionalOffer = InferInsertModel<typeof promotionalOffers>;
+
+// System Configuration
+export type SystemConfiguration = InferSelectModel<typeof systemConfiguration>;
+export type NewSystemConfiguration = InferInsertModel<typeof systemConfiguration>;
+
+// Commission Rates
+export type CommissionRate = InferSelectModel<typeof commissionRates>;
+export type NewCommissionRate = InferInsertModel<typeof commissionRates>;
+
+// Service Providers
+export type ServiceProvider = InferSelectModel<typeof serviceProviders>;
+export type NewServiceProvider = InferInsertModel<typeof serviceProviders>;
 
 // ==================== RELATIONS ====================
 
