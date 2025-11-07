@@ -83,12 +83,12 @@ export async function rollbackTransaction(
       action: "TransactionPosted",
       entityType: "transaction",
       entityId: transactionId,
-      details: {
+      details: JSON.stringify({
         reason,
         rollbackActions,
         originalStatus: transaction.transactionStatus,
         timestamp: rollbackTimestamp,
-      },
+      }),
     });
 
     rollbackActions.push("Audit log created");
@@ -111,11 +111,11 @@ export async function rollbackTransaction(
         action: "TransactionPosted",
         entityType: "transaction",
         entityId: transactionId,
-        details: {
+        details: JSON.stringify({
           reason,
           error: error instanceof Error ? error.message : String(error),
           timestamp: rollbackTimestamp,
-        },
+        }),
       });
     } catch (auditError) {
       console.error("Failed to create audit log for rollback failure:", auditError);
@@ -270,11 +270,11 @@ export async function retryFailedTransaction(
         action: "TransactionPosted",
         entityType: "transaction",
         entityId: transactionId,
-        details: {
+        details: JSON.stringify({
           attempt: attempts,
           maxRetries,
           timestamp: new Date(),
-        },
+        }),
       });
 
       // Here you would reprocess the transaction
@@ -311,12 +311,12 @@ export async function retryFailedTransaction(
     action: "TransactionPosted",
     entityType: "transaction",
     entityId: transactionId,
-    details: {
+    details: JSON.stringify({
       attempts,
       maxRetries,
       error: lastError?.message,
       timestamp: new Date(),
-    },
+    }),
   });
 
   return {
@@ -395,10 +395,10 @@ export async function restoreTransactionFromSnapshot(
       action: "TransactionPosted",
       entityType: "transaction",
       entityId: "snapshot",
-      details: {
+      details: JSON.stringify({
         timestamp: new Date(),
         itemCount: Array.isArray(snapshot.items) ? snapshot.items.length : 0,
-      },
+      }),
     });
 
     return {

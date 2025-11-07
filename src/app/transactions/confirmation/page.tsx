@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TransactionConfirmation } from "@/components/transactions/transaction-confirmation";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { TransactionDetail } from "@/lib/actions/transactions";
 import type { ReceiptData } from "@/lib/actions/receipts";
 
-export default function TransactionConfirmationPage() {
+function TransactionConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -98,5 +98,17 @@ export default function TransactionConfirmationPage() {
       onClose={handleClose}
       onNewTransaction={handleNewTransaction}
     />
+  );
+}
+
+export default function TransactionConfirmationPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <Spinner className="h-8 w-8" />
+      </div>
+    }>
+      <TransactionConfirmationContent />
+    </Suspense>
   );
 }
