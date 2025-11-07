@@ -20,7 +20,7 @@ export function ReceiptTemplate({
   isReprint = false,
 }: ReceiptTemplateProps) {
   const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
+    return `$${amount ? amount.toFixed(2) : "0.00"}`;
   };
 
   const formatDate = (date: Date) => {

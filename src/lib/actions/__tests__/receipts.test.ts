@@ -96,7 +96,7 @@ describe("Receipt Generation", () => {
   describe("Receipt Item Formatting", () => {
     it("should format currency amounts", () => {
       const formatCurrency = (amount: number): string => {
-        return `$${amount.toFixed(2)}`;
+        return `$${amount ? amount.toFixed(2) : "0.00"}`;
       };
 
       expect(formatCurrency(100)).toBe("$100.00");

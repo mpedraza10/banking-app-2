@@ -31,7 +31,7 @@ export interface CreateAuditLogRequest {
   action: AuditAction;
   entityType: string; // "Transaction", "Receipt", "Customer", etc.
   entityId?: string;
-  details?: Record<string, unknown>;
+  details?: string; // JSON string
   ipAddress?: string;
   userAgent?: string;
 }
@@ -43,7 +43,7 @@ export interface AuditLogEntry {
   action: AuditAction;
   entityType: string;
   entityId?: string;
-  details?: Record<string, unknown>;
+  details?: string; // JSON string
   ipAddress?: string;
   userAgent?: string;
   timestamp: Date;
@@ -68,7 +68,7 @@ export async function createAuditLog(
         action: data.action,
         entityType: data.entityType,
         entityId: data.entityId,
-        details: data.details ? JSON.stringify(data.details) : undefined,
+        details: data.details,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
         timestamp: new Date(),
@@ -81,7 +81,7 @@ export async function createAuditLog(
       action: newLog.action as AuditAction,
       entityType: newLog.entityType,
       entityId: newLog.entityId || undefined,
-      details: newLog.details ? JSON.parse(newLog.details) : undefined,
+      details: newLog.details || undefined,
       ipAddress: newLog.ipAddress || undefined,
       userAgent: newLog.userAgent || undefined,
       timestamp: newLog.timestamp!,
@@ -118,7 +118,7 @@ export async function getAuditLogsByEntity(
       action: log.action as AuditAction,
       entityType: log.entityType,
       entityId: log.entityId || undefined,
-      details: log.details ? JSON.parse(log.details) : undefined,
+      details: log.details || undefined,
       ipAddress: log.ipAddress || undefined,
       userAgent: log.userAgent || undefined,
       timestamp: log.timestamp!,
@@ -160,7 +160,7 @@ export async function getAuditLogsByUser(
       action: log.action as AuditAction,
       entityType: log.entityType,
       entityId: log.entityId || undefined,
-      details: log.details ? JSON.parse(log.details) : undefined,
+      details: log.details || undefined,
       ipAddress: log.ipAddress || undefined,
       userAgent: log.userAgent || undefined,
       timestamp: log.timestamp!,
@@ -200,7 +200,7 @@ export async function getRecentAuditLogs(
       action: log.action as AuditAction,
       entityType: log.entityType,
       entityId: log.entityId || undefined,
-      details: log.details ? JSON.parse(log.details) : undefined,
+      details: log.details || undefined,
       ipAddress: log.ipAddress || undefined,
       userAgent: log.userAgent || undefined,
       timestamp: log.timestamp!,
@@ -226,7 +226,7 @@ export async function logTransactionCreated(
     action: "TransactionCreated",
     entityType: "Transaction",
     entityId: transactionId,
-    details: transactionData,
+    details: JSON.stringify(transactionData),
   });
 }
 
@@ -245,10 +245,10 @@ export async function logTransactionPosted(
     action: "TransactionPosted",
     entityType: "Transaction",
     entityId: transactionId,
-    details: {
+    details: JSON.stringify({
       transactionNumber,
       postedAt: new Date().toISOString(),
-    },
+    }),
   });
 }
 
@@ -268,11 +268,11 @@ export async function logReceiptGenerated(
     action: "ReceiptGenerated",
     entityType: "Receipt",
     entityId: receiptId,
-    details: {
+    details: JSON.stringify({
       receiptNumber,
       transactionId,
       generatedAt: new Date().toISOString(),
-    },
+    }),
   });
 }
 
@@ -292,11 +292,11 @@ export async function logReceiptReprinted(
     action: "ReceiptReprinted",
     entityType: "Receipt",
     entityId: receiptId,
-    details: {
+    details: JSON.stringify({
       receiptNumber,
       reprintCount,
       reprintedAt: new Date().toISOString(),
-    },
+    }),
   });
 }
 
@@ -316,11 +316,11 @@ export async function logPaymentProcessed(
     action: "PaymentProcessed",
     entityType: "Transaction",
     entityId: transactionId,
-    details: {
+    details: JSON.stringify({
       paymentType,
       amount,
       processedAt: new Date().toISOString(),
-    },
+    }),
   });
 }
 
@@ -341,12 +341,12 @@ export async function logCashDenominationTracking(
     action: "CashReceived",
     entityType: "CashTracking",
     entityId: transactionId,
-    details: {
+    details: JSON.stringify({
       trackingType,
       denominations,
       totalAmount,
       trackedAt: new Date().toISOString(),
-    },
+    }),
   });
 }
 
@@ -363,9 +363,9 @@ export async function logReconciliationPerformed(
     userId: user.id,
     action: "ReconciliationPerformed",
     entityType: "Reconciliation",
-    details: {
+    details: JSON.stringify({
       ...reconciliationData,
       performedAt: new Date().toISOString(),
-    },
+    }),
   });
 }

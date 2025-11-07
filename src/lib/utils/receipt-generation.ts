@@ -366,7 +366,7 @@ function maskCardNumber(cardNumber: string): string {
  * Format currency amount
  */
 function formatCurrency(amount: number): string {
-  return `$${amount.toFixed(2)}`;
+  return `$${amount ? amount.toFixed(2) : "0.00"}`;
 }
 
 /**

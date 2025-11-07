@@ -49,7 +49,7 @@ export function CustomerDetailDisplay({
   customerId,
   onBack,
 }: CustomerDetailDisplayProps) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [customer, setCustomer] = useState<CustomerDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -57,9 +57,16 @@ export function CustomerDetailDisplay({
     useForm<CustomerUpdateData>();
 
   useEffect(() => {
-    loadCustomerData();
+    // Wait for auth to load and user to be available
+    if (!authLoading && user) {
+      loadCustomerData();
+    } else if (!authLoading && !user) {
+      // Auth loaded but no user - handle unauthorized
+      toast.error("No authenticated user found");
+      setIsLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerId]);
+  }, [customerId, user, authLoading]);
 
   const loadCustomerData = async () => {
     try {
@@ -89,6 +96,11 @@ export function CustomerDetailDisplay({
   };
 
   const onSubmit = async (data: CustomerUpdateData) => {
+    if (!user) {
+      toast.error("No authenticated user found");
+      return;
+    }
+    
     try {
       setIsUpdating(true);
       const response = await updateCustomer(user, customerId, data);

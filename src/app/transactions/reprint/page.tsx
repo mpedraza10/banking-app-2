@@ -83,7 +83,7 @@ export default function ReceiptReprintPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
+    return `$${amount ? amount.toFixed(2) : "0.00"}`;
   };
 
   const formatDate = (date: Date) => {
@@ -226,27 +226,33 @@ export default function ReceiptReprintPage() {
                 {/* Items */}
                 <div className="space-y-3">
                   <h4 className="font-semibold">Conceptos</h4>
-                  {receipt.items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="space-y-1">
-                        <p className="font-medium">{item.description}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Cantidad: {item.quantity}
-                        </p>
-                        {item.referenceNumber && (
-                          <p className="text-xs text-muted-foreground">
-                            Ref: {item.referenceNumber}
+                  {receipt.items && receipt.items.length > 0 ? (
+                    receipt.items.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-medium">{item.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Cantidad: {item.quantity}
                           </p>
-                        )}
+                          {item.referenceNumber && (
+                            <p className="text-xs text-muted-foreground">
+                              Ref: {item.referenceNumber}
+                            </p>
+                          )}
+                        </div>
+                        <p className="font-semibold">
+                          {formatCurrency(item.amount * item.quantity)}
+                        </p>
                       </div>
-                      <p className="font-semibold">
-                        {formatCurrency(item.amount * item.quantity)}
-                      </p>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No hay conceptos disponibles
+                    </p>
+                  )}
                 </div>
 
                 {/* Reprint Warning */}
