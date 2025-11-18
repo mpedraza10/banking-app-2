@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -47,9 +47,12 @@ export function CashDrawerManagement({
           <CardTitle>Inventario de Caja</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-8 w-full" />
-          ))}
+          {[...Array(6)].map((_, i) => {
+            const skeletonId = `skeleton-${i}`;
+            return (
+              <Skeleton key={skeletonId} className="h-8 w-full" />
+            );
+          })}
         </CardContent>
       </Card>
     );

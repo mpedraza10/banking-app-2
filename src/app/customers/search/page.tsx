@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ProtectedRoute } from "@/components/protected-route";
+import { CustomerDetailDisplay } from "@/components/customers/customer-detail-display";
 import { CustomerSearchForm } from "@/components/customers/customer-search-form";
 import { CustomerSelectionTable } from "@/components/customers/customer-selection-table";
-import { CustomerDetailDisplay } from "@/components/customers/customer-detail-display";
+import { ProtectedRoute } from "@/components/protected-route";
 import type { CustomerSearchResult } from "@/lib/actions/customers";
+
 
 type ViewState = "search" | "selection" | "detail";
 
@@ -18,9 +19,14 @@ export default function CustomerSearchPage() {
 
   const handleSearchComplete = (results: CustomerSearchResult[]) => {
     setSearchResults(results);
-    if (results.length > 0) {
-      setCurrentView("selection");
+    if (results.length === 0) {
+      setCurrentView("search");
+      setSelectedCustomerId("");
+      return;
     }
+
+    setCurrentView("selection");
+    setSelectedCustomerId("");
   };
 
   const handleSelectCustomer = (customerId: string) => {
@@ -41,8 +47,7 @@ export default function CustomerSearchPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="bg-white border-b shadow-sm">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -62,7 +67,9 @@ export default function CustomerSearchPage() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-label="Dropdown arrow"
                 >
+                  <title>Dropdown arrow</title>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -76,7 +83,7 @@ export default function CustomerSearchPage() {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-8 flex-1">
           {currentView === "search" && (
             <div>
               <h1 className="text-2xl font-normal text-gray-800 mb-6">

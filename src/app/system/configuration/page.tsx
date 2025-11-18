@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AppLayout } from "@/components/navigation";
@@ -36,11 +36,7 @@ export default function SystemConfigurationPage() {
   const [commissionRates, setCommissionRates] = useState<CommissionRate[]>([]);
   const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
 
-  useEffect(() => {
-    loadConfiguration();
-  }, []);
-
-  const loadConfiguration = async () => {
+  const loadConfiguration = useCallback(async () => {
     try {
       setLoading(true);
       const [config, rates, providers] = await Promise.all([
@@ -58,7 +54,11 @@ export default function SystemConfigurationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadConfiguration();
+  }, [loadConfiguration]);
 
   const handleSaveSystemConfig = async () => {
     if (!systemConfig || !user) return;

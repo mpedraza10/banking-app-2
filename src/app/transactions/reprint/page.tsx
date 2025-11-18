@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -229,7 +229,7 @@ export default function ReceiptReprintPage() {
                   {receipt.items && receipt.items.length > 0 ? (
                     receipt.items.map((item, index) => (
                       <div
-                        key={index}
+                        key={item.referenceNumber || `${item.description}-${item.amount}-${item.quantity}-${index}`}
                         className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
                       >
                         <div className="space-y-1">

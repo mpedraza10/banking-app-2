@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function ServicePaymentPage() {
   const { user } = useAuth();
@@ -72,14 +73,14 @@ export default function ServicePaymentPage() {
                 <span className="font-semibold">Caja Corporativa</span>
               </div>
               <nav className="flex gap-4 ml-8">
-                <button className="text-sm hover:underline">Caja bancaria</button>
-                <button className="text-sm hover:underline">Flujo Efectivo</button>
-                <button className="text-sm font-semibold border-b-2 border-white">
+                <Button className="text-sm hover:underline">Caja bancaria</Button>
+                <Button className="text-sm hover:underline">Flujo Efectivo</Button>
+                <Button className="text-sm font-semibold border-b-2 border-white">
                   Transacciones
-                </button>
+                </Button>
               </nav>
             </div>
-            <button className="text-sm hover:underline">Tu cuenta</button>
+            <Button className="text-sm hover:underline">Tu cuenta</Button>
           </div>
         </div>
       </div>
@@ -89,15 +90,15 @@ export default function ServicePaymentPage() {
         <div className="container mx-auto px-6 py-4">
           <h1 className="text-3xl font-bold text-gray-800">Pago de Servicios</h1>
           <div className="flex gap-4 mt-4 text-sm">
-            <button className="font-medium text-gray-700 border-b-2 border-gray-700 pb-2">
+            <Button className="font-medium text-gray-700 border-b-2 border-gray-700 pb-2">
               Transacciones
-            </button>
-            <button className="text-blue-600 hover:underline pb-2">
+            </Button>
+            <Button className="text-blue-600 hover:underline pb-2">
               Monto a cobrar
-            </button>
-            <button className="text-blue-600 hover:underline pb-2">
+            </Button>
+            <Button className="text-blue-600 hover:underline pb-2">
               Monto a pagar
-            </button>
+            </Button>
           </div>
         </div>
       </div>

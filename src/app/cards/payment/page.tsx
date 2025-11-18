@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { getCardInfo } from "@/lib/actions/card-payments";
-import type { CardInfo } from "@/lib/actions/card-payments";
+
 
 export default function CardPaymentPage() {
   return (

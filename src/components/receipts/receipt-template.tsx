@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -93,7 +92,7 @@ export function ReceiptTemplate({
         <div className="space-y-3">
           <h3 className="font-semibold text-base">Detalles</h3>
           {receipt.items.map((item, index) => (
-            <div key={index} className="space-y-1 text-sm">
+            <div key={item.referenceNumber || `${item.description}-${item.amount}-${item.quantity}-${index}`} className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="font-medium">{item.description}</span>
                 <span>{formatCurrency(item.amount * item.quantity)}</span>

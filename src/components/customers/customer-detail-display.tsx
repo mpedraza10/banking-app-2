@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,19 +56,9 @@ export function CustomerDetailDisplay({
   const { register, handleSubmit, reset, setValue } =
     useForm<CustomerUpdateData>();
 
-  useEffect(() => {
-    // Wait for auth to load and user to be available
-    if (!authLoading && user) {
-      loadCustomerData();
-    } else if (!authLoading && !user) {
-      // Auth loaded but no user - handle unauthorized
-      toast.error("No authenticated user found");
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerId, user, authLoading]);
-
-  const loadCustomerData = async () => {
+  const loadCustomerData = useCallback(async () => {
+    if (!user) return;
+    
     try {
       setIsLoading(true);
       const data = await getCustomerById(user, customerId);
@@ -93,7 +83,18 @@ export function CustomerDetailDisplay({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, customerId, reset]);
+
+  useEffect(() => {
+    // Wait for auth to load and user to be available
+    if (!authLoading && user) {
+      loadCustomerData();
+    } else if (!authLoading && !user) {
+      // Auth loaded but no user - handle unauthorized
+      toast.error("No authenticated user found");
+      setIsLoading(false);
+    }
+  }, [user, authLoading, loadCustomerData]);
 
   const onSubmit = async (data: CustomerUpdateData) => {
     if (!user) {

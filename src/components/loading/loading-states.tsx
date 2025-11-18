@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
@@ -81,16 +80,19 @@ interface SkeletonCardProps {
 export function SkeletonCard({ count = 1 }: SkeletonCardProps) {
   return (
     <>
-      {Array.from({ length: count }).map((_, index) => (
-        <div
-          key={index}
-          className="border rounded-lg p-6 space-y-4 animate-pulse bg-white dark:bg-gray-800"
-        >
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
-        </div>
-      ))}
+      {Array.from({ length: count }, (_, index) => {
+        const cardId = `skeleton-card-${count}-${index}`;
+        return (
+          <div
+            key={cardId}
+            className="border rounded-lg p-6 space-y-4 animate-pulse bg-white dark:bg-gray-800"
+          >
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -105,21 +107,30 @@ export function TableSkeleton({ rows = 5, columns = 4 }: TableSkeletonProps) {
     <div className="border rounded-lg overflow-hidden">
       <div className="bg-gray-50 dark:bg-gray-800 p-4 border-b">
         <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
-          {Array.from({ length: columns }).map((_, index) => (
-            <div key={index} className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-          ))}
+          {Array.from({ length: columns }, (_, index) => {
+            const headerId = `table-header-${columns}-${index}`;
+            return (
+              <div key={headerId} className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            );
+          })}
         </div>
       </div>
       <div className="divide-y">
-        {Array.from({ length: rows }).map((_, rowIndex) => (
-          <div key={rowIndex} className="p-4 animate-pulse">
-            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
-              {Array.from({ length: columns }).map((_, colIndex) => (
-                <div key={colIndex} className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-              ))}
+        {Array.from({ length: rows }, (_, rowIndex) => {
+          const rowId = `table-row-${rows}-${rowIndex}`;
+          return (
+            <div key={rowId} className="p-4 animate-pulse">
+              <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+                {Array.from({ length: columns }, (_, colIndex) => {
+                  const cellId = `table-cell-${rows}-${columns}-${rowIndex}-${colIndex}`;
+                  return (
+                    <div key={cellId} className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
