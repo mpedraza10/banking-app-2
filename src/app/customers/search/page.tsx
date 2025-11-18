@@ -48,40 +48,6 @@ export default function CustomerSearchPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <header className="bg-white border-b shadow-sm">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">C</span>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-800">
-                Caja Corporativa
-              </h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">Caja bancaria</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Tu cuenta</span>
-                <svg
-                  className="w-4 h-4 text-gray-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-label="Dropdown arrow"
-                >
-                  <title>Dropdown arrow</title>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </header>
-
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 flex-1">
           {currentView === "search" && (
