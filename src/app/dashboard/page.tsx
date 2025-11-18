@@ -1,10 +1,8 @@
 "use client";
 
-import React from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Search,
   CreditCard,
@@ -13,15 +11,12 @@ import {
   FileText,
   Settings,
   History,
-  UserCircle,
   LayoutDashboard,
 } from "lucide-react";
-import { useAuth } from "@/lib/hooks/useAuth";
 import { ProtectedRoute } from "@/components/protected-route";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user } = useAuth();
 
   const modules = [
     {
@@ -97,34 +92,6 @@ export default function DashboardPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b shadow-sm">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">CC</span>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Caja Cooperativa
-                  </h1>
-                  <p className="text-sm text-muted-foreground">
-                    Sistema de Gestión de Cajeros
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="gap-2">
-                  <UserCircle className="h-4 w-4" />
-                  {user?.email}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </header>
-
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
           {/* Welcome Section */}

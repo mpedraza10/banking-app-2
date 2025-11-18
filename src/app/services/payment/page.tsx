@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ServicePaymentForm } from "@/components/services/service-payment-form";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -9,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function ServicePaymentPage() {
   const { user } = useAuth();
-  const [, setSelectedCustomer] = useState<string | null>(null);
 
   // Fetch available services
   const {
@@ -60,44 +59,20 @@ export default function ServicePaymentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-blue-600 text-white py-4 px-6">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">BAF</span>
-                </div>
-                <span className="font-semibold">Caja Corporativa</span>
-              </div>
-              <nav className="flex gap-4 ml-8">
-                <button className="text-sm hover:underline">Caja bancaria</button>
-                <button className="text-sm hover:underline">Flujo Efectivo</button>
-                <button className="text-sm font-semibold border-b-2 border-white">
-                  Transacciones
-                </button>
-              </nav>
-            </div>
-            <button className="text-sm hover:underline">Tu cuenta</button>
-          </div>
-        </div>
-      </div>
-
       {/* Page Title */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-6 py-4">
           <h1 className="text-3xl font-bold text-gray-800">Pago de Servicios</h1>
           <div className="flex gap-4 mt-4 text-sm">
-            <button className="font-medium text-gray-700 border-b-2 border-gray-700 pb-2">
+            <Button variant="ghost" className="font-medium text-gray-700 border-b-2 border-gray-700 pb-2 hover:bg-gray-100">
               Transacciones
-            </button>
-            <button className="text-blue-600 hover:underline pb-2">
+            </Button>
+            <Button variant="ghost" className="text-blue-600 hover:bg-gray-100 hover:text-blue-700 pb-2">
               Monto a cobrar
-            </button>
-            <button className="text-blue-600 hover:underline pb-2">
+            </Button>
+            <Button variant="ghost" className="text-blue-600 hover:bg-gray-100 hover:text-blue-700 pb-2">
               Monto a pagar
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -113,6 +88,7 @@ export default function ServicePaymentPage() {
               services={services}
               onSubmit={handleSubmit}
               onValidateReference={handleValidateReference}
+              user={user}
             />
           </CardContent>
         </Card>

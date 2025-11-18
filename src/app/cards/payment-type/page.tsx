@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -34,6 +34,17 @@ function PaymentTypeContent() {
   const [promotions, setPromotions] = useState<PromotionalOffer[]>([]);
   const [showPromotions, setShowPromotions] = useState(false);
 
+  const loadPromotions = useCallback(async (info: CardInfo) => {
+    if (!user) return;
+
+    try {
+      const offers = await getPromotionalOffers(user, info.cardType, info.currentBalance);
+      setPromotions(offers);
+    } catch (error) {
+      console.error("Error loading promotions:", error);
+    }
+  }, [user]);
+
   useEffect(() => {
     // Retrieve card info from session storage
     const storedCardInfo = sessionStorage.getItem("currentCardInfo");
@@ -49,18 +60,7 @@ function PaymentTypeContent() {
       // Redirect back to card search if no card info
       router.push("/cards/payment");
     }
-  }, [router, user]);
-
-  const loadPromotions = async (info: CardInfo) => {
-    if (!user) return;
-
-    try {
-      const offers = await getPromotionalOffers(user, info.cardType, info.currentBalance);
-      setPromotions(offers);
-    } catch (error) {
-      console.error("Error loading promotions:", error);
-    }
-  };
+  }, [router, user, loadPromotions]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-MX", {

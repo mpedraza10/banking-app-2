@@ -101,19 +101,21 @@ export function PaymentDenominationInterface({
             {bills.map((denomination) => {
               const qty = denominations[denomination] || 0;
               const count = qty > 0 ? `(${qty})` : "";
+              const inputId = `bill-${denomination}`;
 
               return (
                 <div
                   key={denomination}
                   className="flex items-center justify-between gap-4"
                 >
-                  <label className="text-sm font-medium min-w-[120px]">
+                  <label htmlFor={inputId} className="text-sm font-medium min-w-[120px]">
                     ${denomination.toFixed(2)}
                     {count && (
                       <span className="text-blue-600 ml-1">{count}</span>
                     )}
                   </label>
                   <Input
+                    id={inputId}
                     type="number"
                     min="0"
                     step="1"
@@ -139,19 +141,21 @@ export function PaymentDenominationInterface({
             {coins.map((denomination) => {
               const qty = denominations[denomination] || 0;
               const count = qty > 0 ? `(${qty})` : "";
+              const inputId = `coin-${denomination}`;
 
               return (
                 <div
                   key={denomination}
                   className="flex items-center justify-between gap-4"
                 >
-                  <label className="text-sm font-medium min-w-[120px]">
+                  <label htmlFor={inputId} className="text-sm font-medium min-w-[120px]">
                     ${denomination.toFixed(2)}
                     {count && (
                       <span className="text-blue-600 ml-1">{count}</span>
                     )}
                   </label>
                   <Input
+                    id={inputId}
                     type="number"
                     min="0"
                     step="1"

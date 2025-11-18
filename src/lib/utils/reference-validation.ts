@@ -68,6 +68,16 @@ const SERVICE_VALIDATION_RULES: Record<string, ValidationRule> = {
 };
 
 /**
+ * Extract base service code from full service code
+ * Handles formats like "TELMEX-001" -> "TELMEX"
+ */
+function extractBaseServiceCode(serviceCode: string): string {
+  // Remove any suffix after hyphen (e.g., "TELMEX-001" -> "TELMEX")
+  const baseCode = serviceCode.split('-')[0].toUpperCase();
+  return baseCode;
+}
+
+/**
  * Validate reference number based on service code
  */
 export function validateReference(
@@ -77,13 +87,16 @@ export function validateReference(
   // Clean reference (remove spaces, hyphens, etc.)
   const cleanedReference = reference.replace(/[\s-]/g, "");
   
+  // Extract base service code (handles formats like "TELMEX-001")
+  const baseServiceCode = extractBaseServiceCode(serviceCode);
+  
   // Get validation rules for service
-  const rules = SERVICE_VALIDATION_RULES[serviceCode.toUpperCase()];
+  const rules = SERVICE_VALIDATION_RULES[baseServiceCode];
   
   if (!rules) {
     return {
       isValid: false,
-      message: `No validation rules defined for service: ${serviceCode}`,
+      message: `No validation rules defined for service: ${baseServiceCode}`,
     };
   }
   
@@ -169,8 +182,9 @@ function validateDiestelChecksum(reference: string): boolean {
  */
 export function formatReference(serviceCode: string, reference: string): string {
   const cleanedReference = reference.replace(/[\s-]/g, "");
+  const baseServiceCode = extractBaseServiceCode(serviceCode);
   
-  switch (serviceCode.toUpperCase()) {
+  switch (baseServiceCode) {
     case "CFE":
       // Format as: XXXX-XXXX-XXXX
       return cleanedReference.replace(/(\d{4})(\d{4})(\d{4})/, "$1-$2-$3");
@@ -195,14 +209,16 @@ export function formatReference(serviceCode: string, reference: string): string 
  * Get validation rules for a service
  */
 export function getValidationRules(serviceCode: string): ValidationRule | null {
-  return SERVICE_VALIDATION_RULES[serviceCode.toUpperCase()] || null;
+  const baseServiceCode = extractBaseServiceCode(serviceCode);
+  return SERVICE_VALIDATION_RULES[baseServiceCode] || null;
 }
 
 /**
  * Check if a service code has validation rules defined
  */
 export function hasValidationRules(serviceCode: string): boolean {
-  return serviceCode.toUpperCase() in SERVICE_VALIDATION_RULES;
+  const baseServiceCode = extractBaseServiceCode(serviceCode);
+  return baseServiceCode in SERVICE_VALIDATION_RULES;
 }
 
 /**
@@ -214,8 +230,9 @@ export function extractReferenceInfo(
   reference: string
 ): Record<string, unknown> {
   const cleanedReference = reference.replace(/[\s-]/g, "");
+  const baseServiceCode = extractBaseServiceCode(serviceCode);
   
-  switch (serviceCode.toUpperCase()) {
+  switch (baseServiceCode) {
     case "DIESTEL":
       // Diestel format: [6 digits region][6 digits account][18 digits transaction info]
       if (cleanedReference.length === 30) {

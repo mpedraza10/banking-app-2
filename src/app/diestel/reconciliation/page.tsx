@@ -425,8 +425,8 @@ function DiestelReconciliationContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reconciliationRecords.map((record, index) => (
-                      <TableRow key={index}>
+                    {reconciliationRecords.map((record) => (
+                      <TableRow key={record.referenceNumber}>
                         <TableCell className="font-mono text-sm">
                           {record.referenceNumber}
                         </TableCell>

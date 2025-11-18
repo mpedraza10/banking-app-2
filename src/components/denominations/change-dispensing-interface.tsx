@@ -119,6 +119,7 @@ export function ChangeDispensingInterface({
               const qty = denominations[denomination] || 0;
               const available = balanceMap.get(denomination) || 0;
               const insufficient = qty > 0 && isDeficient(denomination, qty);
+              const inputId = `change-bill-${denomination}`;
 
               return (
                 <div
@@ -126,6 +127,7 @@ export function ChangeDispensingInterface({
                   className="flex items-center justify-between gap-4"
                 >
                   <label
+                    htmlFor={inputId}
                     className={`text-sm font-medium min-w-[120px] ${
                       insufficient ? "text-red-600" : ""
                     }`}
@@ -140,6 +142,7 @@ export function ChangeDispensingInterface({
                     </span>
                   </label>
                   <Input
+                    id={inputId}
                     type="number"
                     min="0"
                     step="1"
@@ -168,6 +171,7 @@ export function ChangeDispensingInterface({
               const qty = denominations[denomination] || 0;
               const available = balanceMap.get(denomination) || 0;
               const insufficient = qty > 0 && isDeficient(denomination, qty);
+              const inputId = `change-coin-${denomination}`;
 
               return (
                 <div
@@ -175,6 +179,7 @@ export function ChangeDispensingInterface({
                   className="flex items-center justify-between gap-4"
                 >
                   <label
+                    htmlFor={inputId}
                     className={`text-sm font-medium min-w-[120px] ${
                       insufficient ? "text-red-600" : ""
                     }`}
@@ -189,6 +194,7 @@ export function ChangeDispensingInterface({
                     </span>
                   </label>
                   <Input
+                    id={inputId}
                     type="number"
                     min="0"
                     step="1"

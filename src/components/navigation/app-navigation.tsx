@@ -3,7 +3,6 @@
 import React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,7 +116,7 @@ export function AppNavigation() {
                 <span className="hidden sm:inline ml-1">Atrás</span>
               </Button>
             )}
-            <button
+            <Button
               onClick={() => router.push("/dashboard")}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
@@ -129,7 +128,7 @@ export function AppNavigation() {
                   Caja Cooperativa
                 </h1>
               </div>
-            </button>
+            </Button>
           </div>
 
           {/* Right section: Navigation Menu and User */}

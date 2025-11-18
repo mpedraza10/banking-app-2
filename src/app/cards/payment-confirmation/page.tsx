@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -48,22 +48,7 @@ function PaymentConfirmationContent() {
   const [processingComplete, setProcessingComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Retrieve payment details from session storage
-    const storedDetails = sessionStorage.getItem("currentPaymentDetails");
-    if (storedDetails) {
-      const details = JSON.parse(storedDetails);
-      setPaymentDetails(details);
-      
-      // Automatically process payment when component loads
-      processPayment(details);
-    } else {
-      // Redirect back to card search if no payment details
-      router.push("/cards/payment");
-    }
-  }, [router]);
-
-  const processPayment = async (details: PaymentDetails) => {
+  const processPayment = useCallback(async (details: PaymentDetails) => {
     if (!user) {
       setError("Usuario no autenticado");
       return;
@@ -108,7 +93,22 @@ function PaymentConfirmationContent() {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    // Retrieve payment details from session storage
+    const storedDetails = sessionStorage.getItem("currentPaymentDetails");
+    if (storedDetails) {
+      const details = JSON.parse(storedDetails);
+      setPaymentDetails(details);
+      
+      // Automatically process payment when component loads
+      processPayment(details);
+    } else {
+      // Redirect back to card search if no payment details
+      router.push("/cards/payment");
+    }
+  }, [router, processPayment]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-MX", {

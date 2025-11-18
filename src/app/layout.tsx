@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionManager } from "@/components/session/session-manager";
 import { ErrorProvider } from "@/lib/contexts/error-context";
+import { ConditionalHeader } from "@/components/navigation/conditional-header";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -39,6 +40,7 @@ export default function RootLayout({
         >
           <ErrorProvider>
             <QueryProvider>
+              <ConditionalHeader />
               {children}
               <SessionManager />
             </QueryProvider>

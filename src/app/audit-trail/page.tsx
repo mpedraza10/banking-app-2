@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -28,11 +28,7 @@ export default function AuditTrailPage() {
   const [filterType, setFilterType] = useState<"recent" | "user" | "entity">("recent");
   const [filterValue, setFilterValue] = useState("");
 
-  useEffect(() => {
-    loadLogs();
-  }, [user]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -49,7 +45,11 @@ export default function AuditTrailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const handleFilter = async () => {
     if (!user || !filterValue.trim()) {

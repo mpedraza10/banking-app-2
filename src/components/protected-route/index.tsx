@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode, type PropsWithChildren } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 
@@ -21,10 +21,9 @@ import { useAuth } from "@/lib/hooks/useAuth";
  * ```
  */
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
+interface ProtectedRouteProps extends PropsWithChildren {
   redirectTo?: string;
-  loadingComponent?: React.ReactNode;
+  loadingComponent?: ReactNode;
 }
 
 export function ProtectedRoute({

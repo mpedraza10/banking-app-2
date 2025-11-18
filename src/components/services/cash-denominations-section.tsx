@@ -144,7 +144,7 @@ export function CashDenominationsSection({
           <RefreshCw className="h-4 w-4" />
           Regresar
         </Button>
-        <Button type="submit" onClick={onAccept} className="bg-blue-600 hover:bg-blue-700">
+        <Button type="submit" onClick={onAccept} className="bg-blue-600 text-white hover:bg-blue-700">
           Aceptar
         </Button>
       </div>
