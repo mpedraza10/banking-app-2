@@ -1,10 +1,11 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { services, servicePayments, geographicCoverage, customers } from "@/lib/db/schema";
+import { services, servicePayments, geographicCoverage, customers, transactions, transactionItems, cashDenominations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 import { validateReference } from "@/lib/utils/reference-validation";
+import { getOrCreateSystemUser } from "@/lib/actions/users";
 
 // Service DTO
 export interface ServiceDTO {
@@ -223,6 +224,65 @@ export async function processServicePayment(
       );
     }
 
+    // Get or create system user from auth user
+    const systemUser = await getOrCreateSystemUser(user);
+    const systemUserId = systemUser.id;
+    const branchId = paymentData.branchId || systemUser.branchId;
+
+    // Generate transaction number
+    const transactionNumber = `SP-${Date.now()}-${paymentData.serviceId.slice(0, 8)}`;
+
+    // Create transaction record
+    const [transaction] = await db
+      .insert(transactions)
+      .values({
+        transactionNumber,
+        transactionType: "ServicePayment",
+        transactionStatus: "Posted",
+        totalAmount: totalRequired.toString(),
+        paymentMethod: "Cash",
+        customerId: paymentData.customerId || null,
+        userId: systemUserId,
+        branchId: branchId,
+        postedAt: new Date(),
+      })
+      .returning();
+
+    // Create transaction item for the service payment
+    await db.insert(transactionItems).values({
+      transactionId: transaction.id,
+      description: `Service Payment - Reference: ${paymentData.referenceNumber}`,
+      amount: paymentData.paymentAmount.toString(),
+      quantity: 1,
+      serviceId: paymentData.serviceId,
+      referenceNumber: paymentData.referenceNumber,
+    });
+
+    // Create transaction item for commission if applicable
+    if (commissionAmount > 0) {
+      await db.insert(transactionItems).values({
+        transactionId: transaction.id,
+        description: "Commission",
+        amount: commissionAmount.toString(),
+        quantity: 1,
+        serviceId: paymentData.serviceId,
+      });
+    }
+
+    // Record cash denominations
+    if (paymentData.cashDenominations.length > 0) {
+      const denominationRecords = paymentData.cashDenominations.map((denom) => ({
+        transactionId: transaction.id,
+        denominationType: "Received" as const,
+        denomination: denom.denomination.toString(),
+        quantity: denom.quantity,
+        amount: denom.amount.toString(),
+        userId: systemUserId,
+      }));
+
+      await db.insert(cashDenominations).values(denominationRecords);
+    }
+
     // Create service payment record
     const payment = await db
       .insert(servicePayments)
@@ -232,8 +292,8 @@ export async function processServicePayment(
         paymentAmount: paymentData.paymentAmount.toString(),
         commissionAmount: commissionAmount.toString(),
         customerId: paymentData.customerId || null,
-        userId: paymentData.userId,
-        branchId: paymentData.branchId,
+        userId: systemUserId,
+        branchId: branchId,
         status: "Completed",
         completedAt: new Date(),
       })
@@ -241,10 +301,11 @@ export async function processServicePayment(
 
     return {
       id: payment[0].id,
-      transactionId: payment[0].id, // In full implementation, create transaction record
+      transactionId: transaction.id,
+      transactionNumber: transaction.transactionNumber,
       status: payment[0].status,
       commissionAmount: commissionAmount,
-      receiptId: payment[0].id, // In full implementation, generate receipt
+      receiptId: transaction.id,
     };
   } catch (error) {
     console.error("Process service payment error:", error);

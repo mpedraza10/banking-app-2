@@ -27,10 +27,31 @@ import { toast } from "sonner";
 // Zod schema for customer search form validation
 const customerSearchSchema = z
   .object({
-    customerId: z.string().optional(),
-    firstName: z.string().optional(),
-    lastName: z.string().optional(),
-    middleName: z.string().optional(),
+    customerId: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || /^\d+$/.test(val),
+        "El número de cliente debe contener solo dígitos"
+      )
+      .refine(
+        (val) => !val || val.length <= 15,
+        "El número de cliente no puede exceder 15 dígitos"
+      ),
+    lastName: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || val.length <= 20,
+        "El apellido paterno no puede exceder 20 caracteres"
+      ),
+    middleName: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || val.length <= 20,
+        "El apellido materno no puede exceder 20 caracteres"
+      ),
     phoneNumber: z
       .string()
       .optional()
@@ -60,10 +81,13 @@ const customerSearchSchema = z
       .string()
       .optional()
       .refine(
+        (val) => !val || val.length <= 13,
+        "El RFC no puede exceder 13 caracteres"
+      )
+      .refine(
         (val) => !val || /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(val.toUpperCase()),
         "El RFC debe tener un formato válido"
       ),
-    street: z.string().optional(),
     city: z.string().optional(),
     state: z.string().optional(),
     neighborhood: z.string().optional(),
@@ -72,10 +96,30 @@ const customerSearchSchema = z
       .optional()
       .refine(
         (val) => !val || /^\d{5}$/.test(val),
-        "El código postal debe tener 5 dígitos"
+        "El código postal debe tener exactamente 5 dígitos"
       ),
-    ife: z.string().optional(),
-    passport: z.string().optional(),
+    ife: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || /^\d+$/.test(val),
+        "El IFE debe contener solo dígitos"
+      )
+      .refine(
+        (val) => !val || val.length <= 20,
+        "El IFE no puede exceder 20 dígitos"
+      ),
+    passport: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || /^\d+$/.test(val),
+        "El pasaporte debe contener solo dígitos"
+      )
+      .refine(
+        (val) => !val || val.length <= 20,
+        "El pasaporte no puede exceder 20 dígitos"
+      ),
   })
   .refine(
     (data) => {
@@ -109,14 +153,12 @@ export function CustomerSearchForm({
     resolver: zodResolver(customerSearchSchema),
     defaultValues: {
       customerId: "",
-      firstName: "",
       lastName: "",
       middleName: "",
       phoneNumber: "",
       alternatePhone: "",
       birthDate: "",
       taxId: "",
-      street: "",
       city: "",
       state: "",
       neighborhood: "",
@@ -361,6 +403,13 @@ export function CustomerSearchForm({
                     id="customerId"
                     placeholder="No. de cliente"
                     aria-invalid={fieldState.invalid}
+                    maxLength={15}
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      // Only allow numeric input
+                      const value = e.target.value.replace(/\D/g, "");
+                      field.onChange(value);
+                    }}
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -383,6 +432,7 @@ export function CustomerSearchForm({
                       placeholder="ESQUIVEL"
                       aria-invalid={fieldState.invalid}
                       autoComplete="family-name"
+                      maxLength={20}
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
@@ -404,6 +454,7 @@ export function CustomerSearchForm({
                       placeholder="VELAZQUEZ"
                       aria-invalid={fieldState.invalid}
                       autoComplete="additional-name"
+                      maxLength={20}
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
@@ -448,6 +499,7 @@ export function CustomerSearchForm({
                     placeholder="RFC"
                     aria-invalid={fieldState.invalid}
                     autoComplete="off"
+                    maxLength={13}
                     onChange={(e) => {
                       // Convert to uppercase for RFC
                       field.onChange(e.target.value.toUpperCase());
@@ -484,6 +536,13 @@ export function CustomerSearchForm({
                     placeholder="IFE"
                     aria-invalid={fieldState.invalid}
                     autoComplete="off"
+                    maxLength={20}
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      // Only allow numeric input
+                      const value = e.target.value.replace(/\D/g, "");
+                      field.onChange(value);
+                    }}
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -505,6 +564,13 @@ export function CustomerSearchForm({
                     placeholder="Pasaporte"
                     aria-invalid={fieldState.invalid}
                     autoComplete="off"
+                    maxLength={20}
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      // Only allow numeric input
+                      const value = e.target.value.replace(/\D/g, "");
+                      field.onChange(value);
+                    }}
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />

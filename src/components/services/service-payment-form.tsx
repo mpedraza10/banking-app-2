@@ -17,7 +17,9 @@ import {
 import { Info } from "lucide-react";
 import { toast } from "sonner";
 import type { ServiceDTO } from "@/lib/actions/services";
+import { processServicePayment } from "@/lib/actions/services";
 import { CashDenominationsSection } from "./cash-denominations-section";
+import type { User } from "@supabase/supabase-js";
 
 // Form validation schema
 const servicePaymentSchema = z.object({
@@ -40,12 +42,14 @@ interface ServicePaymentFormProps {
   services: ServiceDTO[];
   onSubmit: (data: ServicePaymentFormData) => Promise<void>;
   onValidateReference?: (serviceId: string, reference: string) => Promise<void>;
+  user: User | null;
 }
 
 export function ServicePaymentForm({
   services,
   onSubmit,
   onValidateReference,
+  user,
 }: ServicePaymentFormProps) {
   const [isValidatingReference, setIsValidatingReference] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,8 +132,55 @@ export function ServicePaymentForm({
   const onSubmitForm = async (data: ServicePaymentFormData) => {
     setIsSubmitting(true);
     try {
-      await onSubmit(data);
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Prepare cash denominations from bills and coins
+      const cashDenominations = [
+        ...bills
+          .filter((bill) => bill.quantity > 0)
+          .map((bill) => ({
+            denomination: bill.value,
+            quantity: bill.quantity,
+            amount: bill.total,
+          })),
+        ...coins
+          .filter((coin) => coin.quantity > 0)
+          .map((coin) => ({
+            denomination: coin.value,
+            quantity: coin.quantity,
+            amount: coin.total,
+          })),
+      ];
+
+      // Prepare payment data
+      const paymentAmount = parseFloat(data.receiptAmount || "0");
+
+      // Process service payment
+      // Note: processServicePayment will handle getting/creating system user internally
+      await processServicePayment(user, {
+        serviceId: data.serviceId,
+        referenceNumber: data.referenceNumber,
+        paymentAmount,
+        customerId: data.customerType === "client" && data.customerAccountNumber 
+          ? data.customerAccountNumber 
+          : undefined,
+        userId: user.id, // Will be mapped to systemUsers.id in processServicePayment
+        branchId: "BRANCH-001", // Will be overridden by system user's branchId if not provided
+        cashDenominations,
+      });
+
+      // Call the original onSubmit callback if provided
+      if (onSubmit) {
+        await onSubmit(data);
+      }
+
       toast.success("Service payment processed successfully");
+      
+      // Reset form after successful submission
+      setBills((prev) => prev.map((b) => ({ ...b, quantity: 0, total: 0 })));
+      setCoins((prev) => prev.map((c) => ({ ...c, quantity: 0, total: 0 })));
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to process payment"
@@ -291,7 +342,7 @@ export function ServicePaymentForm({
                     {...register("commissionAmount")}
                     className="mt-1"
                     placeholder="0.00"
-                    readOnly
+                    readOnly={true}
                   />
                 </div>
 
@@ -377,9 +428,7 @@ export function ServicePaymentForm({
               setBills((prev) => prev.map((b) => ({ ...b, quantity: 0, total: 0 })));
               setCoins((prev) => prev.map((c) => ({ ...c, quantity: 0, total: 0 })));
             }}
-            onAccept={() => {
-              // Form submission is handled by handleSubmit
-            }}
+            onAccept={handleSubmit(onSubmitForm)}
           />
         </div>
       </div>

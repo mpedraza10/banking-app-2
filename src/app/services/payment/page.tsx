@@ -88,6 +88,7 @@ export default function ServicePaymentPage() {
               services={services}
               onSubmit={handleSubmit}
               onValidateReference={handleValidateReference}
+              user={user}
             />
           </CardContent>
         </Card>
