@@ -64,10 +64,11 @@ export async function getOrCreateSystemUser(
                 id: newSystemUser.id,
                 branchId: newSystemUser.branchId,
             };
-        } catch (insertError: any) {
+        } catch (insertError: unknown) {
             // If insert fails due to unique constraint, try to fetch again
             // This handles race conditions where another request created the user
-            if (insertError?.code === "23505" || insertError?.message?.includes("unique")) {
+            const error = insertError as { code?: string; message?: string };
+            if (error?.code === "23505" || error?.message?.includes("unique")) {
                 const retrySystemUser = await db
                     .select()
                     .from(systemUsers)
