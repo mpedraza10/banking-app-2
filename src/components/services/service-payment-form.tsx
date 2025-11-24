@@ -24,7 +24,7 @@ import type { User } from "@supabase/supabase-js";
 // Form validation schema
 const servicePaymentSchema = z.object({
   serviceId: z.string().min(1, "Service type is required"),
-  referenceNumber: z.string().min(1, "Reference number is required"),
+  referenceNumber: z.string().min(1, "Reference number is required").regex(/^\d+$/, "La referencia debe contener solo números"),
   verificationDigit: z.string().optional(),
   dueDate: z.string().optional(),
   receiptOwnerName: z.string().optional(),
@@ -238,6 +238,7 @@ export function ServicePaymentForm({
                     {...register("referenceNumber")}
                     className="mt-1"
                     placeholder="Enter reference"
+                    type="number"
                     onBlur={handleValidateReference}
                   />
                   {errors.referenceNumber && (

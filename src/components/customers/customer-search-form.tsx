@@ -236,6 +236,13 @@ export function CustomerSearchForm({
                     placeholder="Teléfono de casa"
                     aria-invalid={fieldState.invalid}
                     autoComplete="tel"
+                    maxLength={10}
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      // Only allow numeric input up to 10 digits
+                      const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      field.onChange(value);
+                    }}
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -257,6 +264,13 @@ export function CustomerSearchForm({
                     placeholder="Celular"
                     aria-invalid={fieldState.invalid}
                     autoComplete="tel"
+                    maxLength={10}
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      // Only allow numeric input up to 10 digits
+                      const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      field.onChange(value);
+                    }}
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -371,6 +385,13 @@ export function CustomerSearchForm({
                       placeholder="CP"
                       aria-invalid={fieldState.invalid}
                       autoComplete="postal-code"
+                      maxLength={5}
+                      inputMode="numeric"
+                      onChange={(e) => {
+                        // Only allow numeric input up to 5 digits
+                        const value = e.target.value.replace(/\D/g, "").slice(0, 5);
+                        field.onChange(value);
+                      }}
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
@@ -433,6 +454,11 @@ export function CustomerSearchForm({
                       aria-invalid={fieldState.invalid}
                       autoComplete="family-name"
                       maxLength={20}
+                      onChange={(e) => {
+                        // Only allow text (no numbers), max 20 characters
+                        const value = e.target.value.replace(/[0-9]/g, "").slice(0, 20);
+                        field.onChange(value);
+                      }}
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
@@ -455,6 +481,11 @@ export function CustomerSearchForm({
                       aria-invalid={fieldState.invalid}
                       autoComplete="additional-name"
                       maxLength={20}
+                      onChange={(e) => {
+                        // Only allow text (no numbers), max 20 characters
+                        const value = e.target.value.replace(/[0-9]/g, "").slice(0, 20);
+                        field.onChange(value);
+                      }}
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
