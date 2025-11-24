@@ -52,9 +52,9 @@ const SERVICE_VALIDATION_RULES: Record<string, ValidationRule> = {
   // Cablevisión
   CABLEVISION: {
     type: "numeric",
-    exactLength: 10,
-    pattern: /^\d{10}$/,
-    description: "Cablevisión reference must be 10 numeric digits",
+    exactLength: 7,
+    pattern: /^\d{7}$/,
+    description: "Cablevisión reference must be 7 numeric digits",
   },
   
   // Diestel (Special 30-digit format)
@@ -64,6 +64,14 @@ const SERVICE_VALIDATION_RULES: Record<string, ValidationRule> = {
     pattern: /^\d{30}$/,
     checksum: validateDiestelChecksum,
     description: "Diestel reference must be 30 numeric digits with valid checksum",
+  },
+
+  // Telcel (Mobile service)
+  TELCEL: {
+    type: "numeric",
+    exactLength: 10,
+    pattern: /^\d{10}$/,
+    description: "Telcel reference must be 10 numeric digits",
   },
 };
 

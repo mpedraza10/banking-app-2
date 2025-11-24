@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { cards, cardPayments, transactions, accounts, customers } from "@/lib/db/schema";
+import { cards, cardPayments, transactions, accounts, customers, systemUsers } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 
@@ -10,6 +10,14 @@ export interface CardInfo {
   cardNumber: string;
   cardType: string;
   customerName: string;
+  customerId?: string;
+  customerRFC?: string;
+  customerBirthDate?: string;
+  customerState?: string;
+  customerCity?: string;
+  customerAddress?: string;
+  customerPhoneHome?: string;
+  customerPhoneOffice?: string;
   currentBalance: number;
   minimumPayment: number;
   statementDate: Date;
@@ -21,7 +29,7 @@ export interface CardInfo {
 }
 
 // Payment type options
-export type PaymentType = "minimum" | "total" | "custom";
+export type PaymentType = "minimum" | "total" | "custom" | "advance" | "credit" | "benefit";
 
 // Card payment request interface
 export interface CardPaymentRequest {
@@ -44,6 +52,33 @@ export interface PromotionalOffer {
   maxDiscount?: number;
   validUntil: Date;
   applicableCardTypes?: string[];
+}
+
+/**
+ * Get card number by card ID
+ * Returns the full unmasked card number
+ */
+export async function getCardNumberById(user: User | null, cardId: string): Promise<string | null> {
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  try {
+    const cardResult = await db
+      .select()
+      .from(cards)
+      .where(eq(cards.id, cardId))
+      .limit(1);
+
+    if (cardResult.length === 0) {
+      return null;
+    }
+
+    return cardResult[0].cardNumber;
+  } catch (error) {
+    console.error("Get card number by ID error:", error);
+    throw new Error("Failed to retrieve card number");
+  }
 }
 
 /**
@@ -108,6 +143,16 @@ export async function getCardInfo(user: User | null, cardNumber: string): Promis
       cardNumber: card.cardNumber,
       cardType: card.cardType || "VISA",
       customerName: `${customer.firstName} ${customer.lastName}`,
+      customerId: customer.customerId || undefined,
+      customerRFC: customer.taxId || undefined,
+      customerBirthDate: customer.birthDate || undefined,
+      customerState: customer.state || undefined,
+      customerCity: customer.city || undefined,
+      customerAddress: customer.street 
+        ? `${customer.street}${customer.exteriorNumber ? ' ' + customer.exteriorNumber : ''}${customer.interiorNumber ? ' Int. ' + customer.interiorNumber : ''}, ${customer.neighborhood || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.postalCode || ''}`.trim()
+        : undefined,
+      customerPhoneHome: customer.phoneNumber || undefined,
+      customerPhoneOffice: customer.alternatePhone || undefined,
       currentBalance: currentBalance,
       minimumPayment: minimumPayment,
       statementDate: new Date(), // TODO: Get from account statement cycle
@@ -281,6 +326,31 @@ export async function processCardPayment(
 
     const { card, account } = cardResult[0];
 
+    // Get or create system user for the logged-in user
+    // Check if a system user exists for this auth user
+    let systemUser = await db
+      .select()
+      .from(systemUsers)
+      .where(eq(systemUsers.username, user.email || user.id))
+      .limit(1);
+
+    // If no system user exists, create a default one for this auth user
+    if (systemUser.length === 0) {
+      const newSystemUser = await db
+        .insert(systemUsers)
+        .values({
+          username: user.email || user.id,
+          name: user.email || "System User",
+          role: "Cajero Ventanilla",
+          branchId: paymentData.branchId,
+          isActive: true,
+        })
+        .returning();
+      systemUser = newSystemUser;
+    }
+
+    const systemUserId = systemUser[0].id;
+
     // Calculate new balance and available credit
     const currentBalance = parseFloat(account.balance);
     const newBalance = currentBalance - paymentData.paymentAmount;
@@ -296,8 +366,6 @@ export async function processCardPayment(
       .where(eq(accounts.id, account.id));
 
     // Create payment record
-    // Note: In production, userId should map to systemUsers table
-    // For now, we'll use a placeholder systemUser ID
     const payment = await db
       .insert(cardPayments)
       .values({
@@ -307,7 +375,7 @@ export async function processCardPayment(
         paymentType: paymentData.paymentType,
         cashReceived: "0", // TODO: Get from denomination details
         changeAmount: "0", // TODO: Calculate from cash received
-        userId: paymentData.userId, // Note: This should be systemUsers.id in production
+        userId: systemUserId, // Use the system user ID, not the auth user ID
         branchId: paymentData.branchId,
         status: "Completed",
         completedAt: new Date(),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { getCustomerById, updateCustomer } from "@/lib/actions/customers";
 import type { CustomerUpdateData } from "@/lib/actions/customers";
 import { toast } from "sonner";
+import { CardSelectionTable } from "./card-selection-table";
 
 interface CustomerDetailDisplayProps {
   customerId: string;
@@ -49,10 +51,12 @@ export function CustomerDetailDisplay({
   customerId,
   onBack,
 }: CustomerDetailDisplayProps) {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [customer, setCustomer] = useState<CustomerDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showCardSelection, setShowCardSelection] = useState(false);
   const { register, handleSubmit, reset, setValue } =
     useForm<CustomerUpdateData>();
 
@@ -69,6 +73,7 @@ export function CustomerDetailDisplay({
         email: data.email || "",
         phoneNumber: data.phoneNumber || "",
         alternatePhone: data.alternatePhone || "",
+        cellPhone: data.cellPhone || "", // Reset cellPhone
         street: data.street || "",
         exteriorNumber: data.exteriorNumber || "",
         interiorNumber: data.interiorNumber || "",
@@ -101,6 +106,19 @@ export function CustomerDetailDisplay({
       toast.error("No authenticated user found");
       return;
     }
+
+    // Client-side validation for phone numbers
+    if (data.alternatePhone && data.alternatePhone.length > 15) {
+      toast.error("Alternate phone must not exceed 15 characters");
+      return;
+    }
+    if (data.cellPhone) {
+      const digitsOnly = data.cellPhone.replace(/\D/g, "");
+      if (digitsOnly.length !== 10) {
+        toast.error("Cell phone must contain exactly 10 digits");
+        return;
+      }
+    }
     
     try {
       setIsUpdating(true);
@@ -116,6 +134,20 @@ export function CustomerDetailDisplay({
     }
   };
 
+  const handleShowCardSelection = () => {
+    setShowCardSelection(true);
+  };
+
+  const handleSelectCard = (cardId: string) => {
+    // Store card ID in session storage and navigate to payment page
+    sessionStorage.setItem("selectedCardId", cardId);
+    router.push("/cards/payment");
+  };
+
+  const handleBackFromCards = () => {
+    setShowCardSelection(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -128,6 +160,26 @@ export function CustomerDetailDisplay({
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-red-500">No se pudo cargar la información del cliente</p>
+      </div>
+    );
+  }
+
+  // Show card selection view if requested
+  if (showCardSelection) {
+    return (
+      <div className="space-y-6">
+        {/* Customer Header */}
+        <div className="border-b pb-4">
+          <h2 className="text-xl font-semibold text-gray-800">
+            {customer.firstName} {customer.lastName} - {customer.customerId} - {customer.taxId}
+          </h2>
+        </div>
+
+        <CardSelectionTable
+          cards={customer.cards}
+          onSelectCard={handleSelectCard}
+          onBack={handleBackFromCards}
+        />
       </div>
     );
   }
@@ -380,6 +432,13 @@ export function CustomerDetailDisplay({
                   id="homePhone"
                   {...register("phoneNumber")}
                   placeholder="5553068068"
+                  maxLength={10}
+                  onChange={(e) => {
+                    // Only allow numeric characters and limit to 10
+                    const numericValue = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setValue("phoneNumber", numericValue);
+                    e.target.value = numericValue;
+                  }}
                 />
               </div>
 
@@ -389,6 +448,13 @@ export function CustomerDetailDisplay({
                   id="officePhone"
                   {...register("alternatePhone")}
                   placeholder="5553068068"
+                  maxLength={10}
+                  onChange={(e) => {
+                    // Only allow numeric characters and limit to 10
+                    const numericValue = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setValue("alternatePhone", numericValue);
+                    e.target.value = numericValue;
+                  }}
                 />
               </div>
             </div>
@@ -396,7 +462,18 @@ export function CustomerDetailDisplay({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="cellPhone">Tel. Celular:</Label>
-                <Input id="cellPhone" placeholder="0" />
+                <Input
+                  id="cellPhone"
+                  {...register("cellPhone")}
+                  placeholder="5551234567"
+                  maxLength={10}
+                  onChange={(e) => {
+                    // Only allow numeric characters and limit to 10
+                    const numericValue = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setValue("cellPhone", numericValue);
+                    e.target.value = numericValue;
+                  }}
+                />
               </div>
             </div>
 
@@ -419,6 +496,20 @@ export function CustomerDetailDisplay({
               </Button>
             </div>
           </form>
+
+          {/* Card Payment Button */}
+          <div className="mt-6 pt-6 border-t">
+            <h4 className="text-md font-semibold text-gray-800 mb-3">
+              Gestión de Tarjetas
+            </h4>
+            <Button
+              type="button"
+              onClick={handleShowCardSelection}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+            >
+              Seleccionar Tarjeta para Pago
+            </Button>
+          </div>
         </div>
       </div>
     </div>

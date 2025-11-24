@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 import type { ServiceDTO } from "@/lib/actions/services";
 import { processServicePayment } from "@/lib/actions/services";
 import { CashDenominationsSection } from "./cash-denominations-section";
+import { PaymentReceiptDialog } from "./payment-receipt-dialog";
 import type { User } from "@supabase/supabase-js";
 
 // Form validation schema
@@ -38,10 +40,31 @@ const servicePaymentSchema = z.object({
 
 type ServicePaymentFormData = z.infer<typeof servicePaymentSchema>;
 
+interface ReferenceValidationResult {
+  isValid: boolean;
+  service: {
+    id: string;
+    name: string;
+    serviceCode: string;
+    commissionRate: string;
+    fixedCommission: string | null;
+    isActive: boolean;
+  } | null;
+  paymentDetails: {
+    amount: number;
+    dueDate?: string;
+  } | null;
+  commission: {
+    amount: number;
+    rate: number;
+  } | null;
+  message?: string;
+}
+
 interface ServicePaymentFormProps {
   services: ServiceDTO[];
   onSubmit: (data: ServicePaymentFormData) => Promise<void>;
-  onValidateReference?: (serviceId: string, reference: string) => Promise<void>;
+  onValidateReference?: (serviceId: string, reference: string) => Promise<ReferenceValidationResult>;
   user: User | null;
 }
 
@@ -53,6 +76,16 @@ export function ServicePaymentForm({
 }: ServicePaymentFormProps) {
   const [isValidatingReference, setIsValidatingReference] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [lastPaymentData, setLastPaymentData] = useState<{
+    transactionNumber: string;
+    serviceName: string;
+    referenceNumber: string;
+    amount: number;
+    commission: number;
+    total: number;
+    date: Date;
+  } | null>(null);
   
   // Cash denominations state
   const [bills, setBills] = useState([
@@ -76,11 +109,15 @@ export function ServicePaymentForm({
     { value: 0.01, quantity: 0, total: 0 },
   ]);
 
+  const [commissionRate, setCommissionRate] = useState(0);
+  const [fixedCommission, setFixedCommission] = useState(0);
+
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<ServicePaymentFormData>({
     resolver: zodResolver(servicePaymentSchema),
@@ -96,9 +133,18 @@ export function ServicePaymentForm({
   const commissionAmount = watch("commissionAmount");
   
   // Calculate totals
-  const cashTotal = [...bills, ...coins].reduce((sum, d) => sum + d.total, 0);
-  const transactionTotal = (parseFloat(receiptAmount || "0") || 0) + (parseFloat(commissionAmount || "0") || 0);
+  // Commission = Fixed + (Amount * Rate)
+  const currentReceiptAmount = parseFloat(receiptAmount || "0") || 0;
+  const calculatedCommission = fixedCommission + (currentReceiptAmount * commissionRate);
   
+  const cashTotal = [...bills, ...coins].reduce((sum, d) => sum + d.total, 0);
+  const transactionTotal = currentReceiptAmount + calculatedCommission;
+  
+  // Update commission amount field when calculated commission changes
+  useEffect(() => {
+    setValue("commissionAmount", calculatedCommission.toFixed(2));
+  }, [calculatedCommission, setValue]);
+
   // Update transaction amount when receipt or commission changes
   useEffect(() => {
     setValue("transactionAmount", transactionTotal.toFixed(2));
@@ -119,11 +165,26 @@ export function ServicePaymentForm({
     setIsValidatingReference(true);
     try {
       if (onValidateReference) {
-        await onValidateReference(serviceId, referenceNumber);
+        const result = await onValidateReference(serviceId, referenceNumber);
+        
+        if (result && result.commission) {
+          setFixedCommission(result.commission.amount);
+          setCommissionRate(result.commission.rate);
+          
+          // Initial calculation will happen via effect
+          
+          if (result.paymentDetails?.amount) {
+             setValue("receiptAmount", result.paymentDetails.amount.toFixed(2));
+          }
+        }
+        
         toast.success("Reference validated successfully");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Validation failed");
+      setFixedCommission(0);
+      setCommissionRate(0);
+      setValue("commissionAmount", "0.00");
     } finally {
       setIsValidatingReference(false);
     }
@@ -159,7 +220,7 @@ export function ServicePaymentForm({
 
       // Process service payment
       // Note: processServicePayment will handle getting/creating system user internally
-      await processServicePayment(user, {
+      const result = await processServicePayment(user, {
         serviceId: data.serviceId,
         referenceNumber: data.referenceNumber,
         paymentAmount,
@@ -177,6 +238,18 @@ export function ServicePaymentForm({
       }
 
       toast.success("Service payment processed successfully");
+      
+      // Show receipt
+      setLastPaymentData({
+        transactionNumber: result.transactionNumber,
+        serviceName: services.find(s => s.id === data.serviceId)?.name || "Unknown Service",
+        referenceNumber: data.referenceNumber,
+        amount: paymentAmount,
+        commission: result.commissionAmount,
+        total: paymentAmount + result.commissionAmount,
+        date: new Date(),
+      });
+      setShowReceipt(true);
       
       // Reset form after successful submission
       setBills((prev) => prev.map((b) => ({ ...b, quantity: 0, total: 0 })));
@@ -433,6 +506,39 @@ export function ServicePaymentForm({
           />
         </div>
       </div>
+
+      <PaymentReceiptDialog
+        open={showReceipt}
+        onOpenChange={(open) => {
+          setShowReceipt(open);
+          if (!open) {
+            // Reset form and state
+            reset({
+              serviceId: "",
+              referenceNumber: "",
+              verificationDigit: "",
+              dueDate: "",
+              receiptAmount: "",
+              transactionAmount: "",
+              cashReceived: "",
+              commissionAmount: "",
+              customerType: "user",
+              customerAccountNumber: "",
+              receiptOwnerName: "",
+            });
+            
+            // Reset local state
+            setCommissionRate(0);
+            setFixedCommission(0);
+            setLastPaymentData(null);
+            
+            // Reset cash denominations
+            setBills(bills.map(b => ({ ...b, quantity: 0, total: 0 })));
+            setCoins(coins.map(c => ({ ...c, quantity: 0, total: 0 })));
+          }
+        }}
+        paymentData={lastPaymentData}
+      />
     </form>
   );
 }
