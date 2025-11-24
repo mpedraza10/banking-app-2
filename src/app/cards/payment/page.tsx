@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { getCardInfo } from "@/lib/actions/card-payments";
+import { getCardInfo, getCardNumberById } from "@/lib/actions/card-payments";
 
 
 export default function CardPaymentPage() {
@@ -27,6 +27,46 @@ function CardPaymentContent() {
   const [cardNumber, setCardNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check for pre-selected card ID from customer selection
+  useEffect(() => {
+    // Only proceed if user is authenticated
+    if (!user) {
+      return;
+    }
+
+    const selectedCardId = sessionStorage.getItem("selectedCardId");
+    if (selectedCardId) {
+      // Clear the session storage immediately
+      sessionStorage.removeItem("selectedCardId");
+      
+      // Fetch the card number to get the full unmasked value
+      const fetchCardNumber = async () => {
+        try {
+          setIsLoading(true);
+          // Get the full unmasked card number using the card ID
+          const fullCardNumber = await getCardNumberById(user, selectedCardId);
+          
+          if (fullCardNumber) {
+            // Set the full card number and automatically search
+            setCardNumber(formatCardNumber(fullCardNumber));
+            handleSearchCard(fullCardNumber);
+          } else {
+            toast.error("No se pudo encontrar la tarjeta");
+          }
+        } catch (error) {
+          console.error("Error fetching card number:", error);
+          toast.error("Error al cargar los detalles de la tarjeta");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchCardNumber();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]); // Only depend on user - run when authentication completes
+
 
   // Format card number with spaces every 4 digits
   const formatCardNumber = (value: string) => {
@@ -52,13 +92,13 @@ function CardPaymentContent() {
     setError(null);
   };
 
-  const handleSearchCard = async () => {
+  const handleSearchCard = async (preselectedCard?: string) => {
     if (!user) {
       toast.error("User not authenticated");
       return;
     }
 
-    const cleanCardNumber = cardNumber.replace(/\s/g, "");
+    const cleanCardNumber = (preselectedCard || cardNumber).replace(/\s/g, "");
 
     // Validate card number format
     if (cleanCardNumber.length < 15 || cleanCardNumber.length > 16) {
@@ -148,7 +188,7 @@ function CardPaymentContent() {
             {/* Search Button */}
             <div>
               <Button
-                onClick={handleSearchCard}
+                onClick={() => handleSearchCard()}
                 disabled={isLoading || cardNumber.replace(/\s/g, "").length < 15}
                 className="bg-blue-600 hover:bg-blue-700"
               >

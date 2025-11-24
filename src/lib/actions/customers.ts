@@ -48,6 +48,7 @@ export interface CustomerUpdateData {
   state?: string;
   postalCode?: string;
   country?: string;
+  cellPhone?: string; // New field for cellular phone
 }
 
 /**
@@ -216,6 +217,13 @@ export async function updateCustomer(
   if (updateData.alternatePhone && updateData.alternatePhone.length > 15) {
     throw new Error("Alternate phone must not exceed 15 characters");
   }
+  // Validate cellPhone length if provided (must be exactly 10 digits)
+  if (updateData.cellPhone) {
+    const digitsOnly = updateData.cellPhone.replace(/\D/g, "");
+    if (digitsOnly.length !== 10) {
+      throw new Error("Cell phone must contain exactly 10 digits");
+    }
+  }
 
   try {
     // Build update object with only provided fields
@@ -239,6 +247,8 @@ export async function updateCustomer(
       updateObject.postalCode = updateData.postalCode;
     if (updateData.country !== undefined)
       updateObject.country = updateData.country;
+    if (updateData.cellPhone !== undefined)
+      updateObject.cellPhone = updateData.cellPhone;
 
     // Update customer
     const updatedCustomer = await db

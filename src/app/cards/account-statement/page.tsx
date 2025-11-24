@@ -100,7 +100,7 @@ function AccountStatementContent() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-700">Estado</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">{cardInfo.customerState || "-"}</div>
                 </div>
               </div>
 
@@ -109,11 +109,11 @@ function AccountStatementContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm font-medium text-gray-700">Número de cliente</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">{cardInfo.customerId || "-"}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-700">Municipio</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">{cardInfo.customerCity || "-"}</div>
                 </div>
               </div>
 
@@ -122,11 +122,13 @@ function AccountStatementContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm font-medium text-gray-700">Fecha de nac.</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">
+                    {cardInfo.customerBirthDate ? formatDate(new Date(cardInfo.customerBirthDate)) : "-"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-700">Dirección</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">{cardInfo.customerAddress || "-"}</div>
                 </div>
               </div>
 
@@ -135,11 +137,11 @@ function AccountStatementContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm font-medium text-gray-700">RFC</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">{cardInfo.customerRFC || "-"}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-700">Teléfono casa</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">{cardInfo.customerPhoneHome || "-"}</div>
                 </div>
               </div>
 
@@ -149,7 +151,7 @@ function AccountStatementContent() {
                 <div></div>
                 <div>
                   <div className="text-sm font-medium text-gray-700">Teléfono oficina</div>
-                  <div className="text-sm text-gray-900">-</div>
+                  <div className="text-sm text-gray-900">{cardInfo.customerPhoneOffice || "-"}</div>
                 </div>
               </div>
             </CardContent>

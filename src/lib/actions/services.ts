@@ -7,6 +7,48 @@ import type { User } from "@supabase/supabase-js";
 import { validateReference } from "@/lib/utils/reference-validation";
 import { getOrCreateSystemUser } from "@/lib/actions/users";
 
+import { cards, accounts } from "@/lib/db/schema";
+
+/**
+ * Resolve customer ID from account number or card number
+ */
+async function resolveCustomerId(identifier: string): Promise<string | null> {
+  // Try to find by account number
+  const account = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.accountNumber, identifier))
+    .limit(1);
+
+  if (account.length > 0) {
+    // Find customer associated with account (via card or direct link if exists)
+    // Assuming Card -> Account link is the primary way to link Customer -> Account in this schema
+    // But schema says Card has customerId AND accountId.
+    // Let's check if we can find a card linked to this account to get the customer.
+    const card = await db
+      .select({ customerId: cards.customerId })
+      .from(cards)
+      .where(eq(cards.accountId, account[0].id))
+      .limit(1);
+      
+    if (card.length > 0) {
+      return card[0].customerId;
+    }
+  }
+
+  // Try to find by card number
+  const card = await db
+    .select({ customerId: cards.customerId })
+    .from(cards)
+    .where(eq(cards.cardNumber, identifier))
+    .limit(1);
+
+  if (card.length > 0) {
+    return card[0].customerId;
+  }
+
+  return null;
+}
 // Service DTO
 export interface ServiceDTO {
   id: string;
@@ -193,12 +235,31 @@ export async function processServicePayment(
   }
 
   try {
+    // Resolve customer ID if provided (could be account/card number)
+    let resolvedCustomerId = paymentData.customerId;
+    if (paymentData.customerId) {
+      // Check if it's a UUID (direct customer ID) or needs resolution
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentData.customerId);
+      
+      if (!isUuid) {
+        const resolvedId = await resolveCustomerId(paymentData.customerId);
+        if (resolvedId) {
+          resolvedCustomerId = resolvedId;
+        } else {
+          // If we can't resolve it, but it was provided as "client" flow, we might want to error or just proceed without linking
+          // For now, let's assume if it's not found, we treat it as a non-linked payment or just log warning
+          console.warn(`Could not resolve customer from identifier: ${paymentData.customerId}`);
+          resolvedCustomerId = undefined; 
+        }
+      }
+    }
+
     // Validate reference first
     const validation = await validateServiceReference(
       user,
       paymentData.serviceId,
       paymentData.referenceNumber,
-      paymentData.customerId
+      resolvedCustomerId
     );
 
     if (!validation.isValid) {

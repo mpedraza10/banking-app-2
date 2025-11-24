@@ -83,6 +83,11 @@ function PaymentTypeContent() {
         return cardInfo.currentBalance;
       case "custom":
         return parseFloat(customAmount) || 0;
+      case "advance":
+      case "credit":
+      case "benefit":
+        // These payment types need custom amounts
+        return 0;
       default:
         return 0;
     }
@@ -143,21 +148,33 @@ function PaymentTypeContent() {
         return;
       }
 
-      // Store payment details in session storage
-      const paymentDetails = {
-        cardInfo,
-        paymentType,
-        paymentAmount,
-        cashReceived: cashAmount,
-        changeAmount: cashAmount - paymentAmount,
-      };
-      sessionStorage.setItem("currentPaymentDetails", JSON.stringify(paymentDetails));
+      // Import processCardPayment dynamically to avoid circular dependencies
+      const { processCardPayment } = await import("@/lib/actions/card-payments");
+      
+      // Process the payment
+      const result = await processCardPayment(
+        user,
+        {
+          cardId: cardInfo.cardNumber,
+          paymentType,
+          paymentAmount,
+          customerId: cardInfo.customerId,
+          userId: user.id,
+          branchId: "default-branch", // TODO: Get from user's branch
+        }
+      );
 
-      // Navigate to denomination tracking (cash received)
-      router.push("/cards/cash-received");
+      // Show success message with payment details
+      toast.success(`Pago procesado exitosamente. Nuevo saldo: ${formatCurrency(result.newBalance)}`);
+      
+      // Clear session storage
+      sessionStorage.removeItem("currentCardInfo");
+      
+      // Navigate back to card payment search
+      router.push("/cards/payment");
     } catch (error) {
-      console.error("Error validating payment:", error);
-      toast.error(error instanceof Error ? error.message : "Error al validar el pago");
+      console.error("Error processing payment:", error);
+      toast.error(error instanceof Error ? error.message : "Error al procesar el pago");
     } finally {
       setIsLoading(false);
     }
