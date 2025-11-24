@@ -48,7 +48,6 @@ function TransactionConfirmationContent() {
           setReceipt(rcpt);
         } catch (receiptError) {
           // Receipt might not exist yet, that's okay
-          console.log("No receipt found:", receiptError);
         }
       } catch (err) {
         console.error("Error loading transaction:", err);

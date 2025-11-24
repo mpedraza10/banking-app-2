@@ -39,7 +39,6 @@ export async function rollbackTransaction(
 
   try {
     // Start transaction rollback
-    console.log(`Starting transaction rollback for ${transactionId}`);
 
     // 1. Get transaction details
     const [transaction] = await db
@@ -92,8 +91,6 @@ export async function rollbackTransaction(
     });
 
     rollbackActions.push("Audit log created");
-
-    console.log(`Transaction ${transactionId} rolled back successfully`);
 
     return {
       success: true,
@@ -287,8 +284,6 @@ export async function retryFailedTransaction(
         })
         .where(eq(transactions.id, transactionId));
 
-      console.log(`Transaction ${transactionId} retried successfully on attempt ${attempts}`);
-
       return {
         success: true,
         attempts,
@@ -388,7 +383,6 @@ export async function restoreTransactionFromSnapshot(
   try {
     // This would restore transaction data from a backup
     // Implementation would depend on backup format and storage
-    console.log("Restoring transaction from snapshot...");
 
     await createAuditLog(user, {
       userId: user.id,

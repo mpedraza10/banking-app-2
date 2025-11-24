@@ -25,12 +25,10 @@ export default function ServicePaymentPage() {
   });
 
   const handleSubmit = async (data: unknown) => {
-    console.log("Processing service payment:", data);
     // Will implement full processing in next subtask
   };
 
   const handleValidateReference = async (serviceId: string, reference: string) => {
-    console.log("Validating reference:", serviceId, reference);
     try {
       // We need to import validateServiceReference from server actions
       // But it's a server action, so we can call it directly if it's imported

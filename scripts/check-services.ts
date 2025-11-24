@@ -5,12 +5,7 @@ import { eq } from "drizzle-orm";
 
 async function checkServices() {
   const allServices = await db.select().from(services);
-  console.log("Services Configuration:");
-  allServices.forEach(s => {
-    console.log(`Service: ${s.name} (${s.serviceCode})`);
-    console.log(`  Commission Rate: ${s.commissionRate}`);
-    console.log(`  Fixed Commission: ${s.fixedCommission}`);
-  });
+  // Services loaded - processing can be added here if needed
 }
 
 checkServices().catch(console.error);

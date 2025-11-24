@@ -11,14 +11,10 @@ if (!connectionString) {
   process.exit(1);
 }
 
-console.log("Connected to database");
-
 const sql = postgres(connectionString);
 
 async function createSystemConfigurationTables() {
   try {
-    console.log("Creating system configuration tables...");
-
     // Create system_configuration table
     await sql`
       CREATE TABLE IF NOT EXISTS system_configuration (
@@ -32,7 +28,6 @@ async function createSystemConfigurationTables() {
         updated_by TEXT NOT NULL
       );
     `;
-    console.log("✓ system_configuration table created");
 
     // Create commission_rates table
     await sql`
@@ -48,7 +43,6 @@ async function createSystemConfigurationTables() {
         updated_by TEXT NOT NULL
       );
     `;
-    console.log("✓ commission_rates table created");
 
     // Create service_providers table
     await sql`
@@ -64,7 +58,6 @@ async function createSystemConfigurationTables() {
         updated_by TEXT NOT NULL
       );
     `;
-    console.log("✓ service_providers table created");
 
     // Insert default system configuration if not exists
     await sql`
@@ -79,7 +72,6 @@ async function createSystemConfigurationTables() {
       SELECT 15, 120, 3, FALSE, 1, 'system'
       WHERE NOT EXISTS (SELECT 1 FROM system_configuration);
     `;
-    console.log("✓ Default system configuration inserted");
 
     // Insert sample service providers
     await sql`
@@ -100,7 +92,6 @@ async function createSystemConfigurationTables() {
         ('Diestel', 'Financial Services', 'https://api.diestel.mx', 60, 2, TRUE, 'system')
       ON CONFLICT DO NOTHING;
     `;
-    console.log("✓ Sample service providers inserted");
 
     // Insert sample commission rates
     await sql`
@@ -121,9 +112,6 @@ async function createSystemConfigurationTables() {
         ('Pago Diestel', 'Diestel', 'percentage', 0.015, TRUE, CURRENT_DATE, 'system')
       ON CONFLICT DO NOTHING;
     `;
-    console.log("✓ Sample commission rates inserted");
-
-    console.log("\nSystem configuration tables created successfully!");
   } catch (error) {
     console.error("Error creating system configuration tables:", error);
     throw error;
@@ -136,7 +124,6 @@ async function createSystemConfigurationTables() {
 if (require.main === module) {
   createSystemConfigurationTables()
     .then(() => {
-      console.log("Setup complete!");
       process.exit(0);
     })
     .catch((error) => {
