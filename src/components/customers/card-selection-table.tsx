@@ -89,9 +89,10 @@ export function CardSelectionTable({
             {cards.map((card) => (
               <TableRow
                 key={card.id}
-                className={
-                  selectedCardId === card.id ? "bg-blue-50" : ""
-                }
+                className={`cursor-pointer hover:bg-gray-50 ${
+                  selectedCardId === card.id ? "bg-blue-50 hover:bg-blue-100" : ""
+                }`}
+                onClick={() => setSelectedCardId(card.id)}
               >
                 <TableCell>
                   <RadioGroup
@@ -103,7 +104,7 @@ export function CardSelectionTable({
                     </div>
                   </RadioGroup>
                 </TableCell>
-                <TableCell className="font-mono">
+                <TableCell className="font-mono font-medium text-gray-900 text-lg">
                   {formatCardNumber(card.cardNumber)}
                 </TableCell>
               </TableRow>

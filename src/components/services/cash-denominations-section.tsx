@@ -81,6 +81,8 @@ interface CashDenominationsSectionProps {
   cashTotal: number;
   onReset: () => void;
   onAccept: () => void;
+  isSubmitting?: boolean;
+  showChange?: boolean;
 }
 
 export function CashDenominationsSection({
@@ -92,7 +94,12 @@ export function CashDenominationsSection({
   cashTotal,
   onReset,
   onAccept,
+  isSubmitting = false,
+  showChange = true,
 }: CashDenominationsSectionProps) {
+  // V6: Calculate change to return
+  const changeAmount = cashTotal > transactionTotal ? cashTotal - transactionTotal : 0;
+  
   return (
     <div className="space-y-4">
       {/* Bills and Coins Grid */}
@@ -129,6 +136,17 @@ export function CashDenominationsSection({
                 ${cashTotal.toFixed(2)}
               </span>
             </div>
+            {/* V6: Show change amount */}
+            {showChange && changeAmount > 0 && (
+              <div className="flex justify-between items-center pt-2 border-t border-green-300">
+                <span className="text-orange-700 font-bold">
+                  Cambio a entregar:
+                </span>
+                <span className="text-orange-700 font-bold text-xl">
+                  ${changeAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -140,12 +158,18 @@ export function CashDenominationsSection({
           variant="outline"
           onClick={onReset}
           className="flex items-center gap-2"
+          disabled={isSubmitting}
         >
           <RefreshCw className="h-4 w-4" />
           Regresar
         </Button>
-        <Button type="submit" onClick={onAccept} className="bg-blue-600 text-white hover:bg-blue-700">
-          Aceptar
+        <Button 
+          type="submit" 
+          onClick={onAccept} 
+          className="bg-blue-600 text-white hover:bg-blue-700"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Procesando..." : "Aceptar"}
         </Button>
       </div>
     </div>

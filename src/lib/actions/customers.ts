@@ -10,6 +10,7 @@ export interface CustomerSearchFilters {
   customerId?: string;
   firstName?: string;
   lastName?: string;
+  middleName?: string; // Maternal surname (apellido materno)
   phoneNumber?: string;
   alternatePhone?: string;
   birthDate?: string;
@@ -19,6 +20,8 @@ export interface CustomerSearchFilters {
   state?: string;
   neighborhood?: string;
   postalCode?: string;
+  ife?: string; // Official ID number
+  passport?: string; // Passport number
 }
 
 // Customer search result DTO
@@ -85,6 +88,11 @@ export async function searchCustomers(
     if (filters.lastName) {
       conditions.push(like(customers.lastName, `%${filters.lastName}%`));
     }
+    // middleName searches against the lastName field for maternal surname
+    // In Mexican naming convention, lastName may contain both paternal and maternal surnames
+    if (filters.middleName) {
+      conditions.push(like(customers.lastName, `%${filters.middleName}%`));
+    }
     if (filters.phoneNumber) {
       conditions.push(
         like(customers.phoneNumber, `%${filters.phoneNumber}%`)
@@ -100,6 +108,14 @@ export async function searchCustomers(
     }
     if (filters.taxId) {
       conditions.push(like(customers.taxId, `%${filters.taxId}%`));
+    }
+    // IFE (INE) and Passport search - uses taxId field as fallback for official IDs
+    // Note: For proper implementation, these should have dedicated columns in the schema
+    if (filters.ife) {
+      conditions.push(like(customers.taxId, `%${filters.ife}%`));
+    }
+    if (filters.passport) {
+      conditions.push(like(customers.taxId, `%${filters.passport}%`));
     }
     if (filters.street) {
       conditions.push(like(customers.street, `%${filters.street}%`));

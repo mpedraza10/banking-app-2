@@ -100,9 +100,9 @@ function CardPaymentContent() {
 
     const cleanCardNumber = (preselectedCard || cardNumber).replace(/\s/g, "");
 
-    // Validate card number format
-    if (cleanCardNumber.length < 15 || cleanCardNumber.length > 16) {
-      setError("El número de tarjeta debe tener 15 o 16 dígitos");
+    // V1.1: Validate card number format - must be exactly 16 digits
+    if (cleanCardNumber.length !== 16) {
+      setError("Número de tarjeta incorrecto");
       return;
     }
 
@@ -113,7 +113,7 @@ function CardPaymentContent() {
       const cardInfo = await getCardInfo(user, cleanCardNumber);
 
       if (!cardInfo) {
-        setError("Tarjeta no encontrada. Por favor verifique el número e intente nuevamente.");
+        setError("Favor de indicar un número de tarjeta válido. Tarjeta no encontrada en el sistema.");
         return;
       }
 
@@ -132,7 +132,7 @@ function CardPaymentContent() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && cardNumber.replace(/\s/g, "").length >= 15) {
+    if (e.key === "Enter" && cardNumber.replace(/\s/g, "").length === 16) {
       handleSearchCard();
     }
   };
@@ -189,7 +189,7 @@ function CardPaymentContent() {
             <div>
               <Button
                 onClick={() => handleSearchCard()}
-                disabled={isLoading || cardNumber.replace(/\s/g, "").length < 15}
+                disabled={isLoading || cardNumber.replace(/\s/g, "").length !== 16}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {isLoading ? "Buscando..." : "Buscar Tarjeta"}

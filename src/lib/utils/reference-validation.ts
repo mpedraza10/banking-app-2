@@ -43,10 +43,9 @@ const SERVICE_VALIDATION_RULES: Record<string, ValidationRule> = {
   // GNM (Gas Natural México)
   GNM: {
     type: "numeric",
-    minLength: 8,
-    maxLength: 12,
-    pattern: /^\d{8,12}$/,
-    description: "GNM reference must be 8-12 numeric digits",
+    exactLength: 16,
+    pattern: /^\d{16}$/,
+    description: "GNM reference must be 16 numeric digits",
   },
   
   // Cablevisión

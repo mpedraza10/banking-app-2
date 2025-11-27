@@ -13,9 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Gift } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { getCustomerById, updateCustomer } from "@/lib/actions/customers";
 import type { CustomerUpdateData } from "@/lib/actions/customers";
+import { getPromotionalOffers } from "@/lib/actions/card-payments";
+import type { PromotionalOffer } from "@/lib/actions/card-payments";
 import { toast } from "sonner";
 import { CardSelectionTable } from "./card-selection-table";
 
@@ -57,8 +63,23 @@ export function CustomerDetailDisplay({
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showCardSelection, setShowCardSelection] = useState(false);
+  const [promotions, setPromotions] = useState<PromotionalOffer[]>([]);
+  const [showPromotions, setShowPromotions] = useState(true);
   const { register, handleSubmit, reset, setValue } =
     useForm<CustomerUpdateData>();
+
+  // Load promotional offers for the customer
+  const loadPromotions = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Fetch promotions (using default card type and estimated balance)
+      const offers = await getPromotionalOffers(user, "GENERAL", 1000);
+      setPromotions(offers);
+    } catch (error) {
+      console.error("Error loading promotions:", error);
+    }
+  }, [user]);
 
   const loadCustomerData = useCallback(async () => {
     if (!user) return;
@@ -94,12 +115,13 @@ export function CustomerDetailDisplay({
     // Wait for auth to load and user to be available
     if (!authLoading && user) {
       loadCustomerData();
+      loadPromotions();
     } else if (!authLoading && !user) {
       // Auth loaded but no user - handle unauthorized
       toast.error("No authenticated user found");
       setIsLoading(false);
     }
-  }, [user, authLoading, loadCustomerData]);
+  }, [user, authLoading, loadCustomerData, loadPromotions]);
 
   const onSubmit = async (data: CustomerUpdateData) => {
     if (!user) {
@@ -512,6 +534,72 @@ export function CustomerDetailDisplay({
           </div>
         </div>
       </div>
+
+      {/* Promotional Offers Section */}
+      {promotions.length > 0 && (
+        <div className="mt-6 pt-6 border-t">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <Gift className="h-5 w-5 text-blue-600" />
+              Promociones Activas para el Cliente
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPromotions(!showPromotions)}
+            >
+              {showPromotions ? "Ocultar" : "Mostrar"}
+            </Button>
+          </div>
+          
+          {showPromotions && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {promotions.map((promo) => (
+                <Card key={promo.id} className="border-blue-200 bg-blue-50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-semibold text-blue-900 flex items-center justify-between">
+                      {promo.title}
+                      {promo.discountType === "percentage" ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800">
+                          {promo.discountValue}% Desc.
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800">
+                          ${promo.discountValue} Desc.
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-blue-800 mb-2">{promo.description}</p>
+                    <div className="text-xs text-blue-700 space-y-1">
+                      {promo.minPaymentAmount && (
+                        <p>Pago mínimo: ${promo.minPaymentAmount.toFixed(2)}</p>
+                      )}
+                      {promo.maxDiscount && (
+                        <p>Descuento máximo: ${promo.maxDiscount.toFixed(2)}</p>
+                      )}
+                      <p>Válido hasta: {new Date(promo.validUntil).toLocaleDateString("es-MX")}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* No promotions message */}
+      {promotions.length === 0 && (
+        <div className="mt-6 pt-6 border-t">
+          <Alert className="border-gray-200 bg-gray-50">
+            <Gift className="h-4 w-4" />
+            <AlertDescription className="text-gray-600">
+              No hay promociones disponibles para este cliente en este momento.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { cards, cardPayments, transactions, accounts, customers, systemUsers } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { cards, cardPayments, transactions, accounts, customers, systemUsers, auditLogs, receipts } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 
 // Card information interface
@@ -94,8 +94,9 @@ export async function getCardInfo(user: User | null, cardNumber: string): Promis
     // Clean card number (remove spaces and dashes)
     const cleanCardNumber = cardNumber.replace(/[\s-]/g, "");
 
-    if (cleanCardNumber.length < 15 || cleanCardNumber.length > 16) {
-      throw new Error("Invalid card number format");
+    // V1.1: Card must be exactly 16 digits
+    if (cleanCardNumber.length !== 16) {
+      throw new Error("Número de tarjeta incorrecto");
     }
 
     // Search for card with account information
@@ -111,11 +112,17 @@ export async function getCardInfo(user: User | null, cardNumber: string): Promis
       .where(eq(cards.cardNumber, cleanCardNumber))
       .limit(1);
 
+    // V1.2: Card must exist in the system
     if (cardResult.length === 0) {
       return null;
     }
 
     const { card, account, customer } = cardResult[0];
+
+    // V1.3: Card must be Active and Valid
+    if (!card.isActive) {
+      throw new Error("Número de tarjeta no está activo");
+    }
     const currentBalance = parseFloat(account.balance);
 
     // Calculate minimum payment (typically 5% of balance or fixed amount)
@@ -289,7 +296,10 @@ export async function validateCardPayment(
 export async function processCardPayment(
   user: User | null,
   paymentData: CardPaymentRequest,
-  denominationDetails?: Record<string, number>
+  denominationDetails?: Record<string, number>,
+  cashReceived?: number,
+  changeAmount?: number,
+  changeDenominationDetails?: Record<string, number>
 ) {
   if (!user) {
     throw new Error("Unauthorized");
@@ -365,6 +375,16 @@ export async function processCardPayment(
       })
       .where(eq(accounts.id, account.id));
 
+    // Use provided cash received or calculate from denomination details
+    const actualCashReceived = cashReceived || 
+      (denominationDetails 
+        ? Object.entries(denominationDetails).reduce(
+            (sum, [value, qty]) => sum + parseFloat(value) * qty, 0
+          ) 
+        : paymentData.paymentAmount);
+    
+    const actualChangeAmount = changeAmount || (actualCashReceived - paymentData.paymentAmount);
+
     // Create payment record
     const payment = await db
       .insert(cardPayments)
@@ -373,9 +393,9 @@ export async function processCardPayment(
         accountId: account.id,
         paymentAmount: paymentData.paymentAmount.toString(),
         paymentType: paymentData.paymentType,
-        cashReceived: "0", // TODO: Get from denomination details
-        changeAmount: "0", // TODO: Calculate from cash received
-        userId: systemUserId, // Use the system user ID, not the auth user ID
+        cashReceived: actualCashReceived.toString(),
+        changeAmount: actualChangeAmount.toString(),
+        userId: systemUserId,
         branchId: paymentData.branchId,
         status: "Completed",
         completedAt: new Date(),
@@ -399,14 +419,58 @@ export async function processCardPayment(
       })
       .returning();
 
+    // Step 17: Save to audit log (bitácora)
+    await db.insert(auditLogs).values({
+      userId: paymentData.userId,
+      action: "CARD_PAYMENT",
+      entityType: "CardPayment",
+      entityId: payment[0].id,
+      details: JSON.stringify({
+        cardNumber: cleanCardNumber.slice(-4),
+        paymentType: paymentData.paymentType,
+        paymentAmount: paymentData.paymentAmount,
+        cashReceived: actualCashReceived,
+        changeAmount: actualChangeAmount,
+        previousBalance: currentBalance,
+        newBalance: newBalance,
+        transactionNumber,
+        denominationDetails,
+        changeDenominationDetails,
+      }),
+    });
+
+    // Save receipt for reprint capability
+    const receiptNumber = `RCP-${Date.now().toString().slice(-8)}`;
+    await db.insert(receipts).values({
+      transactionId: transaction[0].id,
+      receiptNumber,
+      receiptData: JSON.stringify({
+        transactionNumber,
+        customerName: paymentData.customerId,
+        cardNumber: cleanCardNumber,
+        paymentType: paymentData.paymentType,
+        paymentAmount: paymentData.paymentAmount,
+        cashReceived: actualCashReceived,
+        changeAmount: actualChangeAmount,
+        previousBalance: currentBalance,
+        newBalance: newBalance,
+        timestamp: new Date().toISOString(),
+      }),
+      printedAt: new Date(),
+      reprintCount: 0,
+    });
+
     return {
       paymentId: payment[0].id,
       transactionId: transaction[0].id,
+      transactionNumber,
       previousBalance: currentBalance,
       paymentAmount: paymentData.paymentAmount,
       newBalance: newBalance,
       availableCredit: newAvailableCredit,
       paymentType: paymentData.paymentType,
+      cashReceived: actualCashReceived,
+      changeAmount: actualChangeAmount,
       message: "Card payment processed successfully",
     };
   } catch (error) {

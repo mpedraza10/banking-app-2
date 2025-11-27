@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,8 +26,20 @@ import type { User } from "@supabase/supabase-js";
 const servicePaymentSchema = z.object({
   serviceId: z.string().min(1, "Service type is required"),
   referenceNumber: z.string().min(1, "Reference number is required").regex(/^\d+$/, "La referencia debe contener solo números"),
-  verificationDigit: z.string().optional(),
-  dueDate: z.string().optional(),
+  verificationDigit: z.string().optional().refine(
+    (val) => !val || /^\d+$/.test(val),
+    "El dígito verificador debe contener solo números"
+  ),
+  dueDate: z.string().optional().refine(
+    (val) => {
+      if (!val) return true;
+      const inputDate = new Date(val);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return inputDate >= today;
+    },
+    "Recibo vencido - La fecha de vencimiento no puede ser anterior a la fecha actual"
+  ),
   receiptOwnerName: z.string().optional(),
   customerType: z.enum(["client", "user"]),
   customerAccountNumber: z.string().optional(),
@@ -36,7 +47,19 @@ const servicePaymentSchema = z.object({
   receiptAmount: z.string().min(1, "Receipt amount is required"),
   transactionAmount: z.string().optional(),
   cashReceived: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    // If customer type is client, account number is required
+    if (data.customerType === "client") {
+      return data.customerAccountNumber && data.customerAccountNumber.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "Número de cuenta/tarjeta es requerido para clientes",
+    path: ["customerAccountNumber"],
+  }
+);
 
 type ServicePaymentFormData = z.infer<typeof servicePaymentSchema>;
 
@@ -85,6 +108,8 @@ export function ServicePaymentForm({
     commission: number;
     total: number;
     date: Date;
+    cashReceived?: number;
+    changeAmount?: number;
   } | null>(null);
   
   // Cash denominations state
@@ -130,7 +155,6 @@ export function ServicePaymentForm({
   const referenceNumber = watch("referenceNumber");
   const customerType = watch("customerType");
   const receiptAmount = watch("receiptAmount");
-  const commissionAmount = watch("commissionAmount");
   
   // Calculate totals
   // Commission = Fixed + (Amount * Rate)
@@ -167,7 +191,7 @@ export function ServicePaymentForm({
       if (onValidateReference) {
         const result = await onValidateReference(serviceId, referenceNumber);
         
-        if (result && result.commission) {
+        if (result?.commission) {
           setFixedCommission(result.commission.amount);
           setCommissionRate(result.commission.rate);
           
@@ -181,7 +205,8 @@ export function ServicePaymentForm({
         toast.success("Reference validated successfully");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Validation failed");
+      // V5: Show validation error for invalid reference/verification digit
+      toast.error(error instanceof Error ? error.message : "Importe, referencia o dígito verificador inválidos");
       setFixedCommission(0);
       setCommissionRate(0);
       setValue("commissionAmount", "0.00");
@@ -195,6 +220,28 @@ export function ServicePaymentForm({
     try {
       if (!user) {
         throw new Error("User not authenticated");
+      }
+
+      // V3: Validate cash received vs transaction amount
+      if (cashTotal < transactionTotal) {
+        toast.error("El monto de transacción no puede ser mayor al efectivo recibido");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Validate that at least some cash denominations are entered
+      if (cashTotal <= 0) {
+        toast.error("Debe ingresar las denominaciones de efectivo recibido");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // V4: Validate that denomination total matches cash received field
+      const cashReceivedValue = parseFloat(data.cashReceived || "0");
+      if (Math.abs(cashTotal - cashReceivedValue) > 0.01 && cashReceivedValue > 0) {
+        toast.error("Total entrada de denominaciones no coincide");
+        setIsSubmitting(false);
+        return;
       }
 
       // Prepare cash denominations from bills and coins
@@ -217,6 +264,12 @@ export function ServicePaymentForm({
 
       // Prepare payment data
       const paymentAmount = parseFloat(data.receiptAmount || "0");
+      
+      if (paymentAmount <= 0) {
+        toast.error("El importe del recibo debe ser mayor a cero");
+        setIsSubmitting(false);
+        return;
+      }
 
       // Process service payment
       // Note: processServicePayment will handle getting/creating system user internally
@@ -239,6 +292,11 @@ export function ServicePaymentForm({
 
       toast.success("Service payment processed successfully");
       
+      // Calculate change for receipt
+      const changeAmount = cashTotal > (paymentAmount + result.commissionAmount) 
+        ? cashTotal - (paymentAmount + result.commissionAmount) 
+        : 0;
+      
       // Show receipt
       setLastPaymentData({
         transactionNumber: result.transactionNumber,
@@ -248,6 +306,8 @@ export function ServicePaymentForm({
         commission: result.commissionAmount,
         total: paymentAmount + result.commissionAmount,
         date: new Date(),
+        cashReceived: cashTotal,
+        changeAmount: changeAmount,
       });
       setShowReceipt(true);
       
@@ -310,10 +370,16 @@ export function ServicePaymentForm({
                     id="referenceNumber"
                     {...register("referenceNumber")}
                     className="mt-1"
-                    placeholder="Enter reference"
+                    placeholder="Ingrese referencia"
                     type="number"
                     onBlur={handleValidateReference}
+                    disabled={isValidatingReference}
                   />
+                  {isValidatingReference && (
+                    <p className="text-blue-500 text-sm mt-1">
+                      Validando referencia...
+                    </p>
+                  )}
                   {errors.referenceNumber && (
                     <p className="text-red-500 text-sm mt-1">
                       {errors.referenceNumber.message}
@@ -332,8 +398,14 @@ export function ServicePaymentForm({
                     id="verificationDigit"
                     {...register("verificationDigit")}
                     className="mt-1"
-                    placeholder="Verification digit"
+                    placeholder="Dígito verificador"
+                    type="number"
                   />
+                  {errors.verificationDigit && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.verificationDigit.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -346,6 +418,11 @@ export function ServicePaymentForm({
                     type="date"
                     className="mt-1"
                   />
+                  {errors.dueDate && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.dueDate.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -382,10 +459,18 @@ export function ServicePaymentForm({
                     </span>
                   </div>
                   {customerType === "client" && (
-                    <Input
-                      {...register("customerAccountNumber")}
-                      placeholder="Account/Card number"
-                    />
+                    <>
+                      <Input
+                        {...register("customerAccountNumber")}
+                        placeholder="Número de cuenta o tarjeta"
+                        type="text"
+                      />
+                      {errors.customerAccountNumber && (
+                        <p className="text-red-500 text-sm">
+                          {errors.customerAccountNumber.message}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -418,6 +503,13 @@ export function ServicePaymentForm({
                     placeholder="0.00"
                     readOnly={true}
                   />
+                  {(fixedCommission > 0 || commissionRate > 0) && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {fixedCommission > 0 && `Fijo: $${fixedCommission.toFixed(2)}`}
+                      {fixedCommission > 0 && commissionRate > 0 && " + "}
+                      {commissionRate > 0 && `${(commissionRate * 100).toFixed(2)}% del importe`}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -503,6 +595,7 @@ export function ServicePaymentForm({
               setCoins((prev) => prev.map((c) => ({ ...c, quantity: 0, total: 0 })));
             }}
             onAccept={handleSubmit(onSubmitForm)}
+            isSubmitting={isSubmitting}
           />
         </div>
       </div>

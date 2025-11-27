@@ -30,6 +30,8 @@ interface PaymentReceiptDialogProps {
     total: number;
     date: Date;
     authorizationCode?: string;
+    cashReceived?: number;
+    changeAmount?: number;
   } | null;
 }
 
@@ -116,6 +118,18 @@ export function PaymentReceiptDialog({
                 <span>Total:</span>
                 <span>{formatCurrency(paymentData.total)}</span>
               </div>
+              {paymentData.cashReceived !== undefined && (
+                <div className="flex justify-between pt-2 border-t mt-2">
+                  <span className="text-gray-600">Efectivo Recibido:</span>
+                  <span>{formatCurrency(paymentData.cashReceived)}</span>
+                </div>
+              )}
+              {paymentData.changeAmount !== undefined && paymentData.changeAmount > 0 && (
+                <div className="flex justify-between font-bold text-orange-600">
+                  <span>Cambio:</span>
+                  <span>{formatCurrency(paymentData.changeAmount)}</span>
+                </div>
+              )}
             </div>
             
             {paymentData.authorizationCode && (
@@ -131,13 +145,17 @@ export function PaymentReceiptDialog({
           </div>
         </div>
 
-        <DialogFooter className="sm:justify-end">
+        <DialogFooter className="sm:justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            Cerrar
+          </Button>
+          <Button variant="outline" onClick={handlePrint} className="gap-2">
+            <Printer className="h-4 w-4" />
+            Reimprimir
           </Button>
           <Button onClick={handlePrint} className="gap-2">
             <Printer className="h-4 w-4" />
-            Print Receipt
+            Imprimir Comprobante
           </Button>
         </DialogFooter>
       </DialogContent>

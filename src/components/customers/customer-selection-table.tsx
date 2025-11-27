@@ -73,43 +73,57 @@ export function CustomerSelectionTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {customers.map((customer) => (
-              <TableRow
-                key={customer.id}
-                className={
-                  selectedCustomerId === customer.id ? "bg-blue-50" : ""
-                }
-              >
-                <TableCell>
-                  <RadioGroup
-                    value={selectedCustomerId}
-                    onValueChange={setSelectedCustomerId}
+            {customers.map((customer) => {
+              const address = [
+                customer.street,
+                customer.city,
+                customer.state,
+                customer.postalCode,
+              ]
+                .filter(Boolean)
+                .join(", ");
+
+              return (
+                <TableRow
+                  key={customer.id}
+                  className={`cursor-pointer hover:bg-gray-50 ${
+                    selectedCustomerId === customer.id ? "bg-blue-50 hover:bg-blue-100" : ""
+                  }`}
+                  onClick={() => setSelectedCustomerId(customer.id)}
+                >
+                  <TableCell>
+                    <RadioGroup
+                      value={selectedCustomerId}
+                      onValueChange={setSelectedCustomerId}
+                    >
+                      <div className="flex items-center">
+                        <RadioGroupItem value={customer.id} id={customer.id} />
+                      </div>
+                    </RadioGroup>
+                  </TableCell>
+                  <TableCell className="font-mono font-medium text-gray-900">
+                    {customer.customerId || "-"}
+                  </TableCell>
+                  <TableCell className="uppercase font-medium text-gray-900">
+                    {customer.firstName} {customer.lastName}
+                  </TableCell>
+                  <TableCell className="text-gray-700">
+                    {customer.taxId || "-"}
+                  </TableCell>
+                  <TableCell 
+                    className="max-w-xs text-gray-700"
+                    title={address || "-"}
                   >
-                    <div className="flex items-center">
-                      <RadioGroupItem value={customer.id} id={customer.id} />
+                    <div className="truncate">
+                      {address || "-"}
                     </div>
-                  </RadioGroup>
-                </TableCell>
-                <TableCell className="font-mono">
-                  {customer.customerId || "-"}
-                </TableCell>
-                <TableCell className="uppercase">
-                  {customer.firstName} {customer.lastName}
-                </TableCell>
-                <TableCell>{customer.taxId || "-"}</TableCell>
-                <TableCell className="max-w-md truncate">
-                  {[
-                    customer.street,
-                    customer.city,
-                    customer.state,
-                    customer.postalCode,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                </TableCell>
-                <TableCell>{customer.phoneNumber || "-"}</TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell className="text-gray-700">
+                    {customer.phoneNumber || "-"}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

@@ -6,13 +6,6 @@ import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Field,
@@ -130,7 +123,7 @@ const customerSearchSchema = z
       return criteriaCount >= 2;
     },
     {
-      message: "Debe llenar al menos 2 campos para iniciar la búsqueda",
+      message: "Campos necesarios faltantes",
       path: ["root"],
     }
   );
@@ -202,7 +195,7 @@ export function CustomerSearchForm({
     <form id="customer-search-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       {/* Info message */}
       <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded">
-        <p className="font-medium mb-1">Debe llenar al menos 2 campos para iniciar la búsqueda del cliente.</p>
+        <p className="font-medium mb-1">Capture al menos 2 filtros de búsqueda para buscar al cliente.</p>
         <p className="text-sm">Todos los campos son opcionales. Puede usar cualquier combinación de campos para realizar la búsqueda.</p>
       </div>
 
@@ -298,19 +291,14 @@ export function CustomerSearchForm({
                     <FieldLabel htmlFor="state">
                       Estado
                     </FieldLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <SelectTrigger id="state" aria-invalid={fieldState.invalid}>
-                        <SelectValue placeholder="Seleccione una" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="09 Ciudad de México">09 Ciudad de México</SelectItem>
-                        <SelectItem value="Jalisco">Jalisco</SelectItem>
-                        <SelectItem value="Nuevo León">Nuevo León</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      {...field}
+                      id="state"
+                      placeholder="Ej: Ciudad de México, Jalisco"
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="address-level1"
+                      maxLength={50}
+                    />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -325,19 +313,14 @@ export function CustomerSearchForm({
                     <FieldLabel htmlFor="city">
                       Municipio
                     </FieldLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <SelectTrigger id="city" aria-invalid={fieldState.invalid}>
-                        <SelectValue placeholder="Seleccione una" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="005 Gustavo A. Madero">005 Gustavo A. Madero</SelectItem>
-                        <SelectItem value="Guadalajara">Guadalajara</SelectItem>
-                        <SelectItem value="Monterrey">Monterrey</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      {...field}
+                      id="city"
+                      placeholder="Ej: Gustavo A. Madero"
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="address-level2"
+                      maxLength={50}
+                    />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -354,17 +337,14 @@ export function CustomerSearchForm({
                     <FieldLabel htmlFor="neighborhood">
                       Colonia
                     </FieldLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <SelectTrigger id="neighborhood" aria-invalid={fieldState.invalid}>
-                        <SelectValue placeholder="Seleccione una opción" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Jardines de Casa Blanca">Jardines de Casa Blanca</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      {...field}
+                      id="neighborhood"
+                      placeholder="Ej: Jardines de Casa Blanca"
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="address-level3"
+                      maxLength={50}
+                    />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -382,7 +362,7 @@ export function CustomerSearchForm({
                     <Input
                       {...field}
                       id="postalCode"
-                      placeholder="CP"
+                      placeholder="Ej: 07180"
                       aria-invalid={fieldState.invalid}
                       autoComplete="postal-code"
                       maxLength={5}
