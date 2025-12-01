@@ -3,7 +3,7 @@
 import { ServicePaymentForm } from "@/components/services/service-payment-form";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { getAvailableServices, validateServiceReference } from "@/lib/actions/services";
+import { getAvailableServices, validateServiceReference, validateCustomerAccount } from "@/lib/actions/services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,19 +24,14 @@ export default function ServicePaymentPage() {
     enabled: !!user,
   });
 
-  const handleSubmit = async (data: unknown) => {
+  const handleSubmit = async (_data: unknown) => {
     // Will implement full processing in next subtask
   };
 
-  const handleValidateReference = async (serviceId: string, reference: string) => {
+  const handleValidateReference = async (serviceId: string, reference: string, verificationDigit?: string) => {
     try {
-      // We need to import validateServiceReference from server actions
-      // But it's a server action, so we can call it directly if it's imported
-      // However, validateServiceReference requires a user object which we have
-      // But we also need to handle the customerId if we want to check for BAF account
-      // For now, let's just validate the reference format and get basic commission
-      
-      const result = await validateServiceReference(user, serviceId, reference);
+      // Validate reference with verification digit
+      const result = await validateServiceReference(user, serviceId, reference, undefined, verificationDigit);
       
       if (!result.isValid) {
         throw new Error(result.message || "Invalid reference");
@@ -45,6 +40,16 @@ export default function ServicePaymentPage() {
       return result;
     } catch (error) {
       console.error("Validation error:", error);
+      throw error;
+    }
+  };
+
+  const handleValidateCustomerAccount = async (identifier: string) => {
+    try {
+      const result = await validateCustomerAccount(user, identifier);
+      return result;
+    } catch (error) {
+      console.error("Customer account validation error:", error);
       throw error;
     }
   };
@@ -103,6 +108,7 @@ export default function ServicePaymentPage() {
               services={services}
               onSubmit={handleSubmit}
               onValidateReference={handleValidateReference}
+              onValidateCustomerAccount={handleValidateCustomerAccount}
               user={user}
             />
           </CardContent>

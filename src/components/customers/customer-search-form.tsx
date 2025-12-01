@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Field,
@@ -16,6 +23,11 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { searchCustomers } from "@/lib/actions/customers";
 import type { CustomerSearchResult } from "@/lib/actions/customers";
 import { toast } from "sonner";
+import {
+  ESTADOS_MEXICO,
+  getMunicipiosPorEstado,
+  getColoniasPorMunicipio,
+} from "@/lib/utils/mexico-geography";
 
 // Zod schema for customer search form validation
 const customerSearchSchema = z
@@ -141,6 +153,8 @@ export function CustomerSearchForm({
 }: CustomerSearchFormProps) {
   const { user } = useAuth();
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedEstadoId, setSelectedEstadoId] = useState<string>("");
+  const [selectedMunicipioId, setSelectedMunicipioId] = useState<string>("");
   
   const form = useForm<CustomerSearchFormData>({
     resolver: zodResolver(customerSearchSchema),
@@ -160,6 +174,18 @@ export function CustomerSearchForm({
       passport: "",
     },
   });
+
+  // Obtener municipios según el estado seleccionado
+  const municipiosDisponibles = useMemo(() => {
+    if (!selectedEstadoId) return [];
+    return getMunicipiosPorEstado(selectedEstadoId);
+  }, [selectedEstadoId]);
+
+  // Obtener colonias según el municipio seleccionado
+  const coloniasDisponibles = useMemo(() => {
+    if (!selectedMunicipioId) return [];
+    return getColoniasPorMunicipio(selectedMunicipioId);
+  }, [selectedMunicipioId]);
 
   const onSubmit = async (data: CustomerSearchFormData) => {
     try {
@@ -188,6 +214,8 @@ export function CustomerSearchForm({
 
   const handleReset = () => {
     form.reset();
+    setSelectedEstadoId("");
+    setSelectedMunicipioId("");
     onReset?.();
   };
 
@@ -291,14 +319,30 @@ export function CustomerSearchForm({
                     <FieldLabel htmlFor="state">
                       Estado
                     </FieldLabel>
-                    <Input
-                      {...field}
-                      id="state"
-                      placeholder="Ej: Ciudad de México, Jalisco"
-                      aria-invalid={fieldState.invalid}
-                      autoComplete="address-level1"
-                      maxLength={50}
-                    />
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={(value) => {
+                        // Encontrar el estado seleccionado para obtener su ID
+                        const estado = ESTADOS_MEXICO.find((e) => e.nombre === value);
+                        setSelectedEstadoId(estado?.id || "");
+                        // Limpiar municipio y colonia al cambiar estado
+                        setSelectedMunicipioId("");
+                        form.setValue("city", "");
+                        form.setValue("neighborhood", "");
+                        field.onChange(value);
+                      }}
+                    >
+                      <SelectTrigger id="state" aria-invalid={fieldState.invalid}>
+                        <SelectValue placeholder="Seleccione un estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ESTADOS_MEXICO.map((estado) => (
+                          <SelectItem key={estado.id} value={estado.nombre}>
+                            {estado.id} - {estado.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -313,14 +357,29 @@ export function CustomerSearchForm({
                     <FieldLabel htmlFor="city">
                       Municipio
                     </FieldLabel>
-                    <Input
-                      {...field}
-                      id="city"
-                      placeholder="Ej: Gustavo A. Madero"
-                      aria-invalid={fieldState.invalid}
-                      autoComplete="address-level2"
-                      maxLength={50}
-                    />
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={(value) => {
+                        // Encontrar el municipio seleccionado para obtener su ID
+                        const municipio = municipiosDisponibles.find((m) => m.nombre === value);
+                        setSelectedMunicipioId(municipio?.id || "");
+                        // Limpiar colonia al cambiar municipio
+                        form.setValue("neighborhood", "");
+                        field.onChange(value);
+                      }}
+                      disabled={!selectedEstadoId}
+                    >
+                      <SelectTrigger id="city" aria-invalid={fieldState.invalid}>
+                        <SelectValue placeholder={selectedEstadoId ? "Seleccione un municipio" : "Primero seleccione un estado"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {municipiosDisponibles.map((municipio) => (
+                          <SelectItem key={municipio.id} value={municipio.nombre}>
+                            {municipio.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
@@ -337,14 +396,29 @@ export function CustomerSearchForm({
                     <FieldLabel htmlFor="neighborhood">
                       Colonia
                     </FieldLabel>
-                    <Input
-                      {...field}
-                      id="neighborhood"
-                      placeholder="Ej: Jardines de Casa Blanca"
-                      aria-invalid={fieldState.invalid}
-                      autoComplete="address-level3"
-                      maxLength={50}
-                    />
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={(value) => {
+                        // Actualizar el código postal automáticamente si hay colonia
+                        const colonia = coloniasDisponibles.find((c) => c.nombre === value);
+                        if (colonia?.codigoPostal) {
+                          form.setValue("postalCode", colonia.codigoPostal);
+                        }
+                        field.onChange(value);
+                      }}
+                      disabled={!selectedMunicipioId}
+                    >
+                      <SelectTrigger id="neighborhood" aria-invalid={fieldState.invalid}>
+                        <SelectValue placeholder={selectedMunicipioId ? "Seleccione una colonia" : "Primero seleccione un municipio"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {coloniasDisponibles.map((colonia) => (
+                          <SelectItem key={colonia.id} value={colonia.nombre}>
+                            {colonia.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}

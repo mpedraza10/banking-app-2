@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { services, servicePayments, geographicCoverage, customers, transactions, transactionItems, cashDenominations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
-import { validateReference } from "@/lib/utils/reference-validation";
+import { validateReference, requiresVerificationDigit } from "@/lib/utils/reference-validation";
 import { getOrCreateSystemUser } from "@/lib/actions/users";
 
 import { cards, accounts } from "@/lib/db/schema";
@@ -48,6 +48,128 @@ async function resolveCustomerId(identifier: string): Promise<string | null> {
   }
 
   return null;
+}
+
+/**
+ * Validate if account number or card number exists in the system
+ * Returns validation result with customer info if found
+ */
+export async function validateCustomerAccount(
+  user: User | null,
+  identifier: string
+): Promise<{
+  isValid: boolean;
+  customerId?: string;
+  customerName?: string;
+  accountType?: string;
+  message: string;
+}> {
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  if (!identifier || identifier.trim() === "") {
+    return {
+      isValid: false,
+      message: "Número de cuenta o tarjeta es requerido",
+    };
+  }
+
+  const cleanIdentifier = identifier.replace(/[\s-]/g, "");
+
+  // Validate format - must be numeric
+  if (!/^\d+$/.test(cleanIdentifier)) {
+    return {
+      isValid: false,
+      message: "Número de cuenta o tarjeta debe contener solo números",
+    };
+  }
+
+  try {
+    // Try to find by account number first
+    const accountResult = await db
+      .select({
+        id: accounts.id,
+        accountNumber: accounts.accountNumber,
+        accountType: accounts.accountType,
+      })
+      .from(accounts)
+      .where(eq(accounts.accountNumber, cleanIdentifier))
+      .limit(1);
+
+    if (accountResult.length > 0) {
+      // Find customer associated with this account via card
+      const cardWithCustomer = await db
+        .select({
+          customerId: cards.customerId,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+        })
+        .from(cards)
+        .innerJoin(customers, eq(cards.customerId, customers.id))
+        .where(eq(cards.accountId, accountResult[0].id))
+        .limit(1);
+
+      if (cardWithCustomer.length > 0) {
+        return {
+          isValid: true,
+          customerId: cardWithCustomer[0].customerId,
+          customerName: `${cardWithCustomer[0].firstName} ${cardWithCustomer[0].lastName}`,
+          accountType: accountResult[0].accountType,
+          message: "Cuenta válida",
+        };
+      }
+
+      return {
+        isValid: true,
+        accountType: accountResult[0].accountType,
+        message: "Cuenta válida (sin cliente asociado)",
+      };
+    }
+
+    // Try to find by card number
+    const cardResult = await db
+      .select({
+        cardId: cards.id,
+        cardNumber: cards.cardNumber,
+        cardType: cards.cardType,
+        customerId: cards.customerId,
+        isActive: cards.isActive,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+      })
+      .from(cards)
+      .innerJoin(customers, eq(cards.customerId, customers.id))
+      .where(eq(cards.cardNumber, cleanIdentifier))
+      .limit(1);
+
+    if (cardResult.length > 0) {
+      // Check if card is active
+      if (!cardResult[0].isActive) {
+        return {
+          isValid: false,
+          message: "Tarjeta no está activa",
+        };
+      }
+
+      return {
+        isValid: true,
+        customerId: cardResult[0].customerId,
+        customerName: `${cardResult[0].firstName} ${cardResult[0].lastName}`,
+        accountType: cardResult[0].cardType || "Tarjeta",
+        message: "Tarjeta válida",
+      };
+    }
+
+    // Not found
+    return {
+      isValid: false,
+      message: "Número de cuenta o tarjeta no encontrado en el sistema",
+    };
+  } catch (error) {
+    console.error("Validate customer account error:", error);
+    throw new Error("Error al validar cuenta del cliente");
+  }
 }
 // Service DTO
 export interface ServiceDTO {
@@ -126,6 +248,7 @@ export async function getAvailableServices(user: User | null) {
  * Validate service reference number format and retrieve payment details
  * Business Rules:
  * - Reference format must match service-specific validation pattern
+ * - Verification digit must be valid if required by service
  * - Returns error if payment date has passed
  * - Commission waived for BAF account holders
  */
@@ -133,7 +256,8 @@ export async function validateServiceReference(
   user: User | null,
   serviceId: string,
   referenceNumber: string,
-  customerId?: string
+  customerId?: string,
+  verificationDigit?: string
 ) {
   if (!user) {
     throw new Error("Unauthorized");
@@ -154,13 +278,18 @@ export async function validateServiceReference(
         paymentDetails: null,
         commission: null,
         message: "Service not found or inactive",
+        requiresVerificationDigit: false,
       };
     }
 
     const serviceData = service[0];
 
+    // Check if service requires verification digit
+    const needsVerificationDigit = requiresVerificationDigit(serviceData.serviceCode);
+    
     // Validate reference format using service-specific validation rules
-    const validation = validateReference(serviceData.serviceCode, referenceNumber);
+    // Include verification digit in validation if provided or required
+    const validation = validateReference(serviceData.serviceCode, referenceNumber, verificationDigit);
     if (!validation.isValid) {
       return {
         isValid: false,
@@ -168,6 +297,7 @@ export async function validateServiceReference(
         paymentDetails: null,
         commission: null,
         message: validation.message,
+        requiresVerificationDigit: needsVerificationDigit,
       };
     }
 
@@ -211,6 +341,7 @@ export async function validateServiceReference(
         rate: commissionRate,
         amount: fixedCommission,
       },
+      requiresVerificationDigit: needsVerificationDigit,
     };
   } catch (error) {
     console.error("Validate reference error:", error);

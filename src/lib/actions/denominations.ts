@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { cashDenominations, cashDrawer, transactions } from "@/lib/db/schema";
+import { cashDenominations, cashDrawer } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 

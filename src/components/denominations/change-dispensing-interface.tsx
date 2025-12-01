@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import type { DenominationEntry, CashDrawerBalance } from "@/lib/actions/denomin
 interface ChangeDispensingInterfaceProps {
   changeAmount: number;
   currentBalance: CashDrawerBalance[];
-  transactionId: string;
+  transactionId?: string;
   onSubmit: (denominations: DenominationEntry[]) => Promise<void>;
   onAutoCalculate?: () => void;
 }
@@ -19,7 +19,6 @@ interface ChangeDispensingInterfaceProps {
 export function ChangeDispensingInterface({
   changeAmount,
   currentBalance,
-  transactionId,
   onSubmit,
   onAutoCalculate,
 }: ChangeDispensingInterfaceProps) {

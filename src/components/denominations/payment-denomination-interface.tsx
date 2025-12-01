@@ -10,14 +10,13 @@ import type { DenominationEntry } from "@/lib/actions/denominations";
 
 interface PaymentDenominationInterfaceProps {
   paymentAmount: number;
-  transactionId: string;
+  transactionId?: string;
   onSubmit: (denominations: DenominationEntry[]) => Promise<void>;
   onCancel?: () => void;
 }
 
 export function PaymentDenominationInterface({
   paymentAmount,
-  transactionId,
   onSubmit,
   onCancel,
 }: PaymentDenominationInterfaceProps) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,15 @@ import { getPromotionalOffers } from "@/lib/actions/card-payments";
 import type { PromotionalOffer } from "@/lib/actions/card-payments";
 import { toast } from "sonner";
 import { CardSelectionTable } from "./card-selection-table";
+import {
+  ESTADOS_MEXICO,
+  getMunicipiosPorEstado,
+  getColoniasPorMunicipio,
+  buscarEstadoPorNombre,
+  buscarMunicipioPorNombre,
+  buscarPorCodigoPostal,
+  validarConsistenciaGeografica,
+} from "@/lib/utils/mexico-geography";
 
 interface CustomerDetailDisplayProps {
   customerId: string;
@@ -65,8 +74,77 @@ export function CustomerDetailDisplay({
   const [showCardSelection, setShowCardSelection] = useState(false);
   const [promotions, setPromotions] = useState<PromotionalOffer[]>([]);
   const [showPromotions, setShowPromotions] = useState(true);
+  const [selectedEstadoId, setSelectedEstadoId] = useState<string>("");
+  const [selectedMunicipioId, setSelectedMunicipioId] = useState<string>("");
+  const [postalCodeSearch, setPostalCodeSearch] = useState<string>("");
+  const [isSearchingByCP, setIsSearchingByCP] = useState(false);
+  const [geoValidationError, setGeoValidationError] = useState<string | null>(null);
   const { register, handleSubmit, reset, setValue } =
     useForm<CustomerUpdateData>();
+
+  // Obtener municipios según el estado seleccionado
+  const municipiosDisponibles = useMemo(() => {
+    if (!selectedEstadoId) return [];
+    return getMunicipiosPorEstado(selectedEstadoId);
+  }, [selectedEstadoId]);
+
+  // Obtener colonias según el municipio seleccionado
+  const coloniasDisponibles = useMemo(() => {
+    if (!selectedMunicipioId) return [];
+    return getColoniasPorMunicipio(selectedMunicipioId);
+  }, [selectedMunicipioId]);
+
+  // Función para buscar por código postal (búsqueda inversa)
+  const handleSearchByPostalCode = useCallback(() => {
+    if (!postalCodeSearch || postalCodeSearch.length < 4) {
+      toast.error("Ingrese un código postal válido (mínimo 4 dígitos)");
+      return;
+    }
+
+    setIsSearchingByCP(true);
+    setGeoValidationError(null);
+
+    const resultado = buscarPorCodigoPostal(postalCodeSearch);
+
+    if (!resultado) {
+      toast.error("Código postal no encontrado en el catálogo");
+      setIsSearchingByCP(false);
+      return;
+    }
+
+    // Auto-seleccionar estado
+    setSelectedEstadoId(resultado.estado.id);
+    setValue("state", resultado.estado.nombre);
+
+    // Auto-seleccionar municipio
+    setSelectedMunicipioId(resultado.municipio.id);
+    setValue("city", resultado.municipio.nombre);
+
+    // Actualizar código postal
+    setValue("postalCode", postalCodeSearch);
+
+    // Actualizar el estado del cliente localmente
+    if (customer) {
+      setCustomer({
+        ...customer,
+        state: resultado.estado.nombre,
+        city: resultado.municipio.nombre,
+        postalCode: postalCodeSearch,
+        neighborhood: resultado.colonias.length === 1 ? resultado.colonias[0].nombre : null,
+      });
+    }
+
+    // Si solo hay una colonia, auto-seleccionarla
+    if (resultado.colonias.length === 1) {
+      setValue("neighborhood", resultado.colonias[0].nombre);
+      toast.success(`Encontrado: ${resultado.estado.nombre}, ${resultado.municipio.nombre}, ${resultado.colonias[0].nombre}`);
+    } else {
+      setValue("neighborhood", "");
+      toast.success(`Encontradas ${resultado.colonias.length} colonias para C.P. ${postalCodeSearch}. Seleccione una colonia.`);
+    }
+
+    setIsSearchingByCP(false);
+  }, [postalCodeSearch, customer, setValue]);
 
   // Load promotional offers for the customer
   const loadPromotions = useCallback(async () => {
@@ -88,6 +166,21 @@ export function CustomerDetailDisplay({
       setIsLoading(true);
       const data = await getCustomerById(user, customerId);
       setCustomer(data);
+
+      // Buscar el estado por nombre y establecer su ID
+      if (data.state) {
+        const estado = buscarEstadoPorNombre(data.state);
+        if (estado) {
+          setSelectedEstadoId(estado.id);
+          // Si hay ciudad/municipio, buscar en ese estado
+          if (data.city) {
+            const municipio = buscarMunicipioPorNombre(data.city, estado.id);
+            if (municipio) {
+              setSelectedMunicipioId(municipio.id);
+            }
+          }
+        }
+      }
 
       // Populate form with current data
       reset({
@@ -141,6 +234,25 @@ export function CustomerDetailDisplay({
         return;
       }
     }
+
+    // A2.5: Validación de consistencia geográfica antes de guardar
+    if (customer?.state && customer?.city && customer?.neighborhood && customer?.postalCode) {
+      const validacion = validarConsistenciaGeografica(
+        customer.state,
+        customer.city,
+        customer.neighborhood,
+        customer.postalCode
+      );
+      
+      if (!validacion.esValido) {
+        setGeoValidationError(validacion.mensaje);
+        toast.error(`Favor de indicar: ${validacion.mensaje}`);
+        return;
+      }
+    }
+    
+    // Limpiar error de validación geográfica si pasó
+    setGeoValidationError(null);
     
     try {
       setIsUpdating(true);
@@ -326,22 +438,72 @@ export function CustomerDetailDisplay({
           </h3>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Búsqueda por Código Postal */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <Label htmlFor="postalCodeSearch" className="text-blue-700 font-medium text-sm">
+                Buscar por Código Postal:
+              </Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  id="postalCodeSearch"
+                  value={postalCodeSearch}
+                  onChange={(e) => setPostalCodeSearch(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  placeholder="Ingrese C.P. (ej: 07180)"
+                  className="flex-1"
+                  maxLength={5}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSearchByPostalCode}
+                  disabled={isSearchingByCP || postalCodeSearch.length < 4}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4"
+                >
+                  {isSearchingByCP ? "Buscando..." : "Buscar"}
+                </Button>
+              </div>
+              <p className="text-xs text-blue-600 mt-1">
+                Ingrese el C.P. para auto-completar Estado, Municipio y Colonias disponibles
+              </p>
+            </div>
+
+            {/* Error de validación geográfica */}
+            {geoValidationError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{geoValidationError}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="state">Estado:</Label>
                 <Select
-                  defaultValue={customer.state || ""}
-                  onValueChange={(value) => setValue("state", value)}
+                  value={customer.state || ""}
+                  onValueChange={(value) => {
+                    // Encontrar el estado seleccionado para obtener su ID
+                    const estado = ESTADOS_MEXICO.find((e) => e.nombre === value);
+                    setSelectedEstadoId(estado?.id || "");
+                    // Limpiar municipio, colonia y C.P. al cambiar estado
+                    setSelectedMunicipioId("");
+                    setValue("city", "");
+                    setValue("neighborhood", "");
+                    setValue("postalCode", "");
+                    setValue("state", value);
+                    setGeoValidationError(null);
+                    // Actualizar el estado del cliente localmente
+                    if (customer) {
+                      setCustomer({ ...customer, state: value, city: null, neighborhood: null, postalCode: null });
+                    }
+                  }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccione" />
+                    <SelectValue placeholder="Seleccione un estado" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="09 Ciudad de México">
-                      09 Ciudad de México
-                    </SelectItem>
-                    <SelectItem value="Jalisco">Jalisco</SelectItem>
-                    <SelectItem value="Nuevo León">Nuevo León</SelectItem>
+                    {ESTADOS_MEXICO.map((estado) => (
+                      <SelectItem key={estado.id} value={estado.nombre}>
+                        {estado.id} - {estado.nombre}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -360,18 +522,32 @@ export function CustomerDetailDisplay({
               <div>
                 <Label htmlFor="city">Municipio:</Label>
                 <Select
-                  defaultValue={customer.city || ""}
-                  onValueChange={(value) => setValue("city", value)}
+                  value={customer.city || ""}
+                  onValueChange={(value) => {
+                    // Encontrar el municipio seleccionado para obtener su ID
+                    const municipio = municipiosDisponibles.find((m) => m.nombre === value);
+                    setSelectedMunicipioId(municipio?.id || "");
+                    // Limpiar colonia y C.P. al cambiar municipio
+                    setValue("neighborhood", "");
+                    setValue("postalCode", "");
+                    setValue("city", value);
+                    setGeoValidationError(null);
+                    // Actualizar el estado del cliente localmente
+                    if (customer) {
+                      setCustomer({ ...customer, city: value, neighborhood: null, postalCode: null });
+                    }
+                  }}
+                  disabled={!selectedEstadoId}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccione" />
+                    <SelectValue placeholder={selectedEstadoId ? "Seleccione un municipio" : "Primero seleccione un estado"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="005 Gustavo A. Madero">
-                      005 Gustavo A. Madero
-                    </SelectItem>
-                    <SelectItem value="Guadalajara">Guadalajara</SelectItem>
-                    <SelectItem value="Monterrey">Monterrey</SelectItem>
+                    {municipiosDisponibles.map((municipio) => (
+                      <SelectItem key={municipio.id} value={municipio.nombre}>
+                        {municipio.nombre}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -386,16 +562,32 @@ export function CustomerDetailDisplay({
               <div>
                 <Label htmlFor="neighborhood">Colonia:</Label>
                 <Select
-                  defaultValue={customer.neighborhood || ""}
-                  onValueChange={(value) => setValue("neighborhood", value)}
+                  value={customer.neighborhood || ""}
+                  onValueChange={(value) => {
+                    // Actualizar código postal automáticamente si hay colonia
+                    const colonia = coloniasDisponibles.find((c) => c.nombre === value);
+                    if (colonia?.codigoPostal) {
+                      setValue("postalCode", colonia.codigoPostal);
+                      setGeoValidationError(null);
+                      if (customer) {
+                        setCustomer({ ...customer, neighborhood: value, postalCode: colonia.codigoPostal });
+                      }
+                    } else if (customer) {
+                      setCustomer({ ...customer, neighborhood: value });
+                    }
+                    setValue("neighborhood", value);
+                  }}
+                  disabled={!selectedMunicipioId}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccione" />
+                    <SelectValue placeholder={selectedMunicipioId ? "Seleccione una colonia" : "Primero seleccione un municipio"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Jardines de Casa Blanca">
-                      Jardines de Casa Blanca
-                    </SelectItem>
+                    {coloniasDisponibles.map((colonia) => (
+                      <SelectItem key={colonia.id} value={colonia.nombre}>
+                        {colonia.nombre} (C.P. {colonia.codigoPostal})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -415,9 +607,14 @@ export function CustomerDetailDisplay({
                 <Label htmlFor="postalCode">C.P.:</Label>
                 <Input
                   id="postalCode"
-                  {...register("postalCode")}
-                  placeholder="7180"
+                  value={customer.postalCode || ""}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed"
+                  placeholder="Se actualiza al seleccionar colonia"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  El C.P. se actualiza automáticamente al seleccionar una colonia
+                </p>
               </div>
 
               <div>

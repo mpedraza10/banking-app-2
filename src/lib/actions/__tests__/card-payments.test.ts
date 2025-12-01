@@ -1,10 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  getCardInfo,
-  validateCardPayment,
-  processCardPayment,
-  getPromotionalOffers,
-} from "../card-payments";
 import type {
   CardInfo,
   PaymentType,

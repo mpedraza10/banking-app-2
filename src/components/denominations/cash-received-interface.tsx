@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,14 +10,13 @@ import type { DenominationEntry } from "@/lib/actions/denominations";
 
 interface CashReceivedInterfaceProps {
   expectedAmount: number;
-  transactionId: string;
+  transactionId?: string;
   onSubmit: (denominations: DenominationEntry[]) => Promise<void>;
   onCancel?: () => void;
 }
 
 export function CashReceivedInterface({
   expectedAmount,
-  transactionId,
   onSubmit,
   onCancel,
 }: CashReceivedInterfaceProps) {

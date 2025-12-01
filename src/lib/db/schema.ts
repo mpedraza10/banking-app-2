@@ -7,8 +7,7 @@ import {
   date, 
   decimal, 
   integer, 
-  pgEnum,
-  json
+  pgEnum
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, InferInsertModel, relations } from "drizzle-orm";
 

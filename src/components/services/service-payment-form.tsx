@@ -82,12 +82,22 @@ interface ReferenceValidationResult {
     rate: number;
   } | null;
   message?: string;
+  requiresVerificationDigit?: boolean;
+}
+
+interface CustomerAccountValidationResult {
+  isValid: boolean;
+  customerId?: string;
+  customerName?: string;
+  accountType?: string;
+  message: string;
 }
 
 interface ServicePaymentFormProps {
   services: ServiceDTO[];
   onSubmit: (data: ServicePaymentFormData) => Promise<void>;
-  onValidateReference?: (serviceId: string, reference: string) => Promise<ReferenceValidationResult>;
+  onValidateReference?: (serviceId: string, reference: string, verificationDigit?: string) => Promise<ReferenceValidationResult>;
+  onValidateCustomerAccount?: (identifier: string) => Promise<CustomerAccountValidationResult>;
   user: User | null;
 }
 
@@ -95,11 +105,16 @@ export function ServicePaymentForm({
   services,
   onSubmit,
   onValidateReference,
+  onValidateCustomerAccount,
   user,
 }: ServicePaymentFormProps) {
   const [isValidatingReference, setIsValidatingReference] = useState(false);
+  const [isValidatingAccount, setIsValidatingAccount] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [requiresVerificationDigit, setRequiresVerificationDigit] = useState(false);
+  const [validatedCustomerName, setValidatedCustomerName] = useState<string | null>(null);
+  const [accountValidationError, setAccountValidationError] = useState<string | null>(null);
   const [lastPaymentData, setLastPaymentData] = useState<{
     transactionNumber: string;
     serviceName: string;
@@ -153,7 +168,9 @@ export function ServicePaymentForm({
 
   const serviceId = watch("serviceId");
   const referenceNumber = watch("referenceNumber");
+  const verificationDigit = watch("verificationDigit");
   const customerType = watch("customerType");
+  const customerAccountNumber = watch("customerAccountNumber");
   const receiptAmount = watch("receiptAmount");
   
   // Calculate totals
@@ -182,14 +199,28 @@ export function ServicePaymentForm({
   // Handle reference validation when both service and reference are present
   const handleValidateReference = async () => {
     if (!serviceId || !referenceNumber) {
-      toast.error("Please select service type and enter reference number");
+      toast.error("Seleccione tipo de servicio e ingrese número de referencia");
       return;
     }
 
     setIsValidatingReference(true);
     try {
       if (onValidateReference) {
-        const result = await onValidateReference(serviceId, referenceNumber);
+        // Include verification digit in validation
+        const result = await onValidateReference(serviceId, referenceNumber, verificationDigit);
+        
+        // Update if service requires verification digit
+        if (result.requiresVerificationDigit !== undefined) {
+          setRequiresVerificationDigit(result.requiresVerificationDigit);
+        }
+        
+        if (!result.isValid) {
+          toast.error(result.message || "Referencia o dígito verificador inválido");
+          setFixedCommission(0);
+          setCommissionRate(0);
+          setValue("commissionAmount", "0.00");
+          return;
+        }
         
         if (result?.commission) {
           setFixedCommission(result.commission.amount);
@@ -202,7 +233,7 @@ export function ServicePaymentForm({
           }
         }
         
-        toast.success("Reference validated successfully");
+        toast.success("Referencia validada correctamente");
       }
     } catch (error) {
       // V5: Show validation error for invalid reference/verification digit
@@ -215,11 +246,78 @@ export function ServicePaymentForm({
     }
   };
 
+  // Handle customer account validation
+  const handleValidateCustomerAccount = async () => {
+    if (!customerAccountNumber || customerAccountNumber.trim() === "") {
+      setValidatedCustomerName(null);
+      setAccountValidationError(null);
+      return;
+    }
+
+    setIsValidatingAccount(true);
+    setAccountValidationError(null);
+    setValidatedCustomerName(null);
+
+    try {
+      if (onValidateCustomerAccount) {
+        const result = await onValidateCustomerAccount(customerAccountNumber);
+        
+        if (!result.isValid) {
+          setAccountValidationError(result.message);
+          toast.error(result.message);
+        } else {
+          setValidatedCustomerName(result.customerName || null);
+          toast.success(`Cliente encontrado: ${result.customerName || "Cuenta válida"}`);
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error al validar cuenta";
+      setAccountValidationError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsValidatingAccount(false);
+    }
+  };
+
   const onSubmitForm = async (data: ServicePaymentFormData) => {
     setIsSubmitting(true);
     try {
       if (!user) {
         throw new Error("User not authenticated");
+      }
+
+      // Validate verification digit if required
+      if (requiresVerificationDigit && (!data.verificationDigit || data.verificationDigit.trim() === "")) {
+        toast.error("Dígito verificador es requerido para este servicio");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Validate customer account if client type is selected
+      if (data.customerType === "client") {
+        if (!data.customerAccountNumber || data.customerAccountNumber.trim() === "") {
+          toast.error("Número de cuenta/tarjeta es requerido para clientes");
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Check if account was validated and has error
+        if (accountValidationError) {
+          toast.error("Debe corregir el número de cuenta/tarjeta antes de continuar");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // If account wasn't validated yet, validate now
+        if (!validatedCustomerName && onValidateCustomerAccount) {
+          const validation = await onValidateCustomerAccount(data.customerAccountNumber);
+          if (!validation.isValid) {
+            toast.error(validation.message);
+            setAccountValidationError(validation.message);
+            setIsSubmitting(false);
+            return;
+          }
+        }
       }
 
       // V3: Validate cash received vs transaction amount
@@ -393,14 +491,23 @@ export function ServicePaymentForm({
                     className="text-gray-700 font-medium"
                   >
                     Dígito Verificador:
+                    {requiresVerificationDigit && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
                   </Label>
                   <Input
                     id="verificationDigit"
                     {...register("verificationDigit")}
-                    className="mt-1"
-                    placeholder="Dígito verificador"
+                    className={`mt-1 ${requiresVerificationDigit && !verificationDigit ? "border-orange-400" : ""}`}
+                    placeholder={requiresVerificationDigit ? "Requerido" : "Dígito verificador"}
                     type="number"
+                    onBlur={handleValidateReference}
                   />
+                  {requiresVerificationDigit && !verificationDigit && (
+                    <p className="text-orange-500 text-sm mt-1">
+                      Este servicio requiere dígito verificador
+                    </p>
+                  )}
                   {errors.verificationDigit && (
                     <p className="text-red-500 text-sm mt-1">
                       {errors.verificationDigit.message}
@@ -446,9 +553,15 @@ export function ServicePaymentForm({
                       type="checkbox"
                       id="customerTypeClient"
                       checked={customerType === "client"}
-                      onChange={(e) =>
-                        setValue("customerType", e.target.checked ? "client" : "user")
-                      }
+                      onChange={(e) => {
+                        setValue("customerType", e.target.checked ? "client" : "user");
+                        if (!e.target.checked) {
+                          // Reset validation state when switching to user
+                          setValidatedCustomerName(null);
+                          setAccountValidationError(null);
+                          setValue("customerAccountNumber", "");
+                        }
+                      }}
                       className="h-4 w-4"
                     />
                     <Label htmlFor="customerTypeClient" className="text-gray-700">
@@ -460,11 +573,36 @@ export function ServicePaymentForm({
                   </div>
                   {customerType === "client" && (
                     <>
-                      <Input
-                        {...register("customerAccountNumber")}
-                        placeholder="Número de cuenta o tarjeta"
-                        type="text"
-                      />
+                      <div className="relative">
+                        <Input
+                          {...register("customerAccountNumber")}
+                          placeholder="Número de cuenta o tarjeta"
+                          type="text"
+                          onBlur={handleValidateCustomerAccount}
+                          disabled={isValidatingAccount}
+                          className={`${accountValidationError ? "border-red-500" : validatedCustomerName ? "border-green-500" : ""}`}
+                        />
+                        {isValidatingAccount && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                          </div>
+                        )}
+                      </div>
+                      {isValidatingAccount && (
+                        <p className="text-blue-500 text-sm">
+                          Validando cuenta...
+                        </p>
+                      )}
+                      {validatedCustomerName && (
+                        <p className="text-green-600 text-sm">
+                          ✓ Cliente: {validatedCustomerName}
+                        </p>
+                      )}
+                      {accountValidationError && (
+                        <p className="text-red-500 text-sm">
+                          ✗ {accountValidationError}
+                        </p>
+                      )}
                       {errors.customerAccountNumber && (
                         <p className="text-red-500 text-sm">
                           {errors.customerAccountNumber.message}
@@ -624,6 +762,9 @@ export function ServicePaymentForm({
             setCommissionRate(0);
             setFixedCommission(0);
             setLastPaymentData(null);
+            setRequiresVerificationDigit(false);
+            setValidatedCustomerName(null);
+            setAccountValidationError(null);
             
             // Reset cash denominations
             setBills(bills.map(b => ({ ...b, quantity: 0, total: 0 })));

@@ -193,7 +193,7 @@ export async function canRollbackTransaction(
  * Get rollback history for a transaction
  */
 export async function getTransactionRollbackHistory(
-  transactionId: string
+  _transactionId: string
 ): Promise<
   Array<{
     action: string;

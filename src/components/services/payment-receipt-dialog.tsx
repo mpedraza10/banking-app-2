@@ -47,9 +47,6 @@ export function PaymentReceiptDialog({
   const handlePrint = () => {
     const printContent = receiptRef.current;
     if (printContent) {
-      const originalContents = document.body.innerHTML;
-      const printContents = printContent.innerHTML;
-      
       // Create a print window or iframe would be better, but for simplicity in this environment:
       // We'll use a print-specific style block
       const style = document.createElement('style');

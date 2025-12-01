@@ -46,7 +46,7 @@ function TransactionConfirmationContent() {
         try {
           const rcpt = await getReceiptByTransactionId(user, transactionId);
           setReceipt(rcpt);
-        } catch (receiptError) {
+        } catch {
           // Receipt might not exist yet, that's okay
         }
       } catch (err) {
