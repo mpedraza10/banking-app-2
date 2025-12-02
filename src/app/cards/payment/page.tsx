@@ -113,7 +113,7 @@ function CardPaymentContent() {
       const cardInfo = await getCardInfo(user, cleanCardNumber);
 
       if (!cardInfo) {
-        setError("Favor de indicar un número de tarjeta válido. Tarjeta no encontrada en el sistema.");
+        setError("Favor de indicar un número de tarjeta válido.");
         return;
       }
 
