@@ -125,9 +125,9 @@ function AccountStatementContent() {
   };
 
   const handleUpdateClientData = () => {
-    // Navigate to customer search with pre-selected customer
-    if (cardInfo?.customerId) {
-      sessionStorage.setItem("preSelectedCustomerId", cardInfo.customerId);
+    // Navigate directly to customer edit with pre-selected customer (using UUID)
+    if (cardInfo?.customerInternalId) {
+      sessionStorage.setItem("preSelectedCustomerId", cardInfo.customerInternalId);
     }
     router.push("/customers/search");
   };

@@ -7,7 +7,7 @@ import { CustomerSelectionTable } from "@/components/customers/customer-selectio
 import { ProtectedRoute } from "@/components/protected-route";
 import type { CustomerSearchResult } from "@/lib/actions/customers";
 
-// Helper function to get initial state from sessionStorage
+// Helper function to get initial state from sessionStorage (called once)
 function getInitialState(): { view: "search" | "selection" | "detail"; customerId: string } {
   if (typeof window === "undefined") {
     return { view: "search", customerId: "" };
@@ -23,11 +23,13 @@ function getInitialState(): { view: "search" | "selection" | "detail"; customerI
 type ViewState = "search" | "selection" | "detail";
 
 export default function CustomerSearchPage() {
-  const [currentView, setCurrentView] = useState<ViewState>(() => getInitialState().view);
+  // Get initial state once to avoid calling getInitialState() multiple times
+  const [initialState] = useState(() => getInitialState());
+  const [currentView, setCurrentView] = useState<ViewState>(initialState.view);
   const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>(
     []
   );
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(() => getInitialState().customerId);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialState.customerId);
 
   const handleSearchComplete = (results: CustomerSearchResult[]) => {
     setSearchResults(results);

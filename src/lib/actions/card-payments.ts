@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { cards, cardPayments, transactions, accounts, customers, systemUsers, auditLogs, receipts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
+import { roundToHalfPeso } from "@/lib/utils/card-payment-utils";
 
 // Card information interface
 export interface CardInfo {
@@ -11,6 +12,7 @@ export interface CardInfo {
   cardType: string;
   customerName: string;
   customerId?: string;
+  customerInternalId?: string; // UUID for internal operations (like navigating to customer edit)
   customerRFC?: string;
   customerBirthDate?: string;
   customerState?: string;
@@ -123,7 +125,9 @@ export async function getCardInfo(user: User | null, cardNumber: string): Promis
     if (!card.isActive) {
       throw new Error("Número de tarjeta no está activo");
     }
-    const currentBalance = parseFloat(account.balance);
+    const rawBalance = parseFloat(account.balance);
+    // Round balance UP to nearest 0.50 (minimum denomination)
+    const currentBalance = roundToHalfPeso(rawBalance, 'up');
 
     // Calculate minimum payment (typically 5% of balance or fixed amount)
     const minimumPaymentPercentage = 0.05;
@@ -132,11 +136,13 @@ export async function getCardInfo(user: User | null, cardNumber: string): Promis
       currentBalance * minimumPaymentPercentage,
       minimumPaymentFixed
     );
-    const minimumPayment = Math.min(calculatedMinPayment, currentBalance);
+    // Round minimum payment UP to nearest 0.50
+    const minimumPayment = roundToHalfPeso(Math.min(calculatedMinPayment, currentBalance), 'up');
 
     // Calculate available credit (assuming creditLimit is stored in account or calculated)
     const creditLimit = 10000; // TODO: Get from account or card configuration
-    const availableCredit = creditLimit - currentBalance;
+    // Round available credit DOWN to nearest 0.50 (conservative for customer)
+    const availableCredit = roundToHalfPeso(creditLimit - currentBalance, 'down');
 
     // Get last payment info
     const lastPayment = await db
@@ -151,6 +157,7 @@ export async function getCardInfo(user: User | null, cardNumber: string): Promis
       cardType: card.cardType || "VISA",
       customerName: `${customer.firstName} ${customer.lastName}`,
       customerId: customer.customerId || undefined,
+      customerInternalId: customer.id, // UUID for internal operations
       customerRFC: customer.taxId || undefined,
       customerBirthDate: customer.birthDate || undefined,
       customerState: customer.state || undefined,
@@ -167,7 +174,7 @@ export async function getCardInfo(user: User | null, cardNumber: string): Promis
       creditLimit: creditLimit,
       availableCredit: availableCredit,
       lastPaymentDate: lastPayment[0]?.createdAt,
-      lastPaymentAmount: lastPayment[0] ? parseFloat(lastPayment[0].paymentAmount) : undefined,
+      lastPaymentAmount: lastPayment[0] ? roundToHalfPeso(parseFloat(lastPayment[0].paymentAmount), 'nearest') : undefined,
     };
   } catch (error) {
     console.error("Get card info error:", error);
@@ -413,7 +420,7 @@ export async function processCardPayment(
         totalAmount: paymentData.paymentAmount.toString(),
         paymentMethod: "Cash",
         customerId: paymentData.customerId || null,
-        userId: paymentData.userId,
+        userId: systemUserId, // Use resolved system user ID, not Supabase Auth ID
         branchId: paymentData.branchId,
         postedAt: new Date(),
       })
@@ -421,7 +428,7 @@ export async function processCardPayment(
 
     // Step 17: Save to audit log (bitácora)
     await db.insert(auditLogs).values({
-      userId: paymentData.userId,
+      userId: systemUserId, // Use resolved system user ID, not Supabase Auth ID
       action: "CARD_PAYMENT",
       entityType: "CardPayment",
       entityId: payment[0].id,

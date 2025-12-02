@@ -403,7 +403,7 @@ function PaymentTypeContent() {
           cardId: cardInfo.cardNumber,
           paymentType,
           paymentAmount,
-          customerId: cardInfo.customerId,
+          customerId: cardInfo.customerInternalId, // Use UUID, not display ID
           userId: user.id,
           branchId: "default-branch", // TODO: Get from user's branch
         },

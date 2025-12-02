@@ -302,23 +302,9 @@ export async function validateServiceReference(
       };
     }
 
-    // Check if customer has BAF account for commission waiver
-    let hasBafAccount = false;
-    if (customerId) {
-      const customer = await db
-        .select({ hasBafAccount: customers.hasBafAccount })
-        .from(customers)
-        .where(eq(customers.id, customerId))
-        .limit(1);
-
-      hasBafAccount = customer.length > 0 && customer[0].hasBafAccount;
-    }
-
-    // Calculate commission
-    const commissionRate = hasBafAccount ? 0 : parseFloat(serviceData.commissionRate);
-    const fixedCommission = hasBafAccount
-      ? 0
-      : serviceData.fixedCommission
+    // Calculate commission from service configuration
+    const commissionRate = parseFloat(serviceData.commissionRate);
+    const fixedCommission = serviceData.fixedCommission
       ? parseFloat(serviceData.fixedCommission)
       : 0;
 
