@@ -149,6 +149,9 @@ export function ServicePaymentForm({
     { value: 0.01, quantity: 0, total: 0 },
   ]);
 
+  // Track if user manually entered cash received (vs. using denominations)
+  const [manualCashReceived, setManualCashReceived] = useState<number | null>(null);
+
   const [commissionRate, setCommissionRate] = useState(0);
   const [fixedCommission, setFixedCommission] = useState(0);
 
@@ -178,7 +181,11 @@ export function ServicePaymentForm({
   const currentReceiptAmount = parseFloat(receiptAmount || "0") || 0;
   const calculatedCommission = fixedCommission + (currentReceiptAmount * commissionRate);
   
-  const cashTotal = [...bills, ...coins].reduce((sum, d) => sum + d.total, 0);
+  const denominationsTotal = [...bills, ...coins].reduce((sum, d) => sum + d.total, 0);
+  // Use manual cash entry if provided, otherwise use denominations total
+  const cashTotal = manualCashReceived !== null && manualCashReceived > 0 
+    ? manualCashReceived 
+    : denominationsTotal;
   const transactionTotal = currentReceiptAmount + calculatedCommission;
   
   // Update commission amount field when calculated commission changes
@@ -191,10 +198,12 @@ export function ServicePaymentForm({
     setValue("transactionAmount", transactionTotal.toFixed(2));
   }, [transactionTotal, setValue]);
   
-  // Update cash received when denominations change
+  // Update cash received when denominations change (only if not manually set)
   useEffect(() => {
-    setValue("cashReceived", cashTotal.toFixed(2));
-  }, [cashTotal, setValue]);
+    if (manualCashReceived === null && denominationsTotal > 0) {
+      setValue("cashReceived", denominationsTotal.toFixed(2));
+    }
+  }, [denominationsTotal, setValue, manualCashReceived]);
 
   // Handle reference validation when both service and reference are present
   const handleValidateReference = async () => {
@@ -320,26 +329,33 @@ export function ServicePaymentForm({
         }
       }
 
+      // Get the effective cash received (manual entry or denominations)
+      const cashReceivedValue = parseFloat(data.cashReceived || "0");
+      const effectiveCashReceived = manualCashReceived !== null && manualCashReceived > 0
+        ? manualCashReceived
+        : denominationsTotal;
+
       // V3: Validate cash received vs transaction amount
-      if (cashTotal < transactionTotal) {
+      if (effectiveCashReceived < transactionTotal) {
         toast.error("El monto de transacción no puede ser mayor al efectivo recibido");
         setIsSubmitting(false);
         return;
       }
 
-      // Validate that at least some cash denominations are entered
-      if (cashTotal <= 0) {
-        toast.error("Debe ingresar las denominaciones de efectivo recibido");
+      // Validate that at least some cash is entered (manual or denominations)
+      if (effectiveCashReceived <= 0) {
+        toast.error("Debe ingresar el efectivo recibido");
         setIsSubmitting(false);
         return;
       }
 
-      // V4: Validate that denomination total matches cash received field
-      const cashReceivedValue = parseFloat(data.cashReceived || "0");
-      if (Math.abs(cashTotal - cashReceivedValue) > 0.01 && cashReceivedValue > 0) {
-        toast.error("Total entrada de denominaciones no coincide");
-        setIsSubmitting(false);
-        return;
+      // V4: Validate that denomination total matches cash received field (only if using denominations)
+      if (denominationsTotal > 0 && manualCashReceived === null) {
+        if (Math.abs(denominationsTotal - cashReceivedValue) > 0.01 && cashReceivedValue > 0) {
+          toast.error("Total entrada de denominaciones no coincide");
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // Prepare cash denominations from bills and coins
@@ -694,8 +710,40 @@ export function ServicePaymentForm({
                     placeholder="0.00"
                     type="number"
                     step="0.01"
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!Number.isNaN(value) && value > 0) {
+                        setManualCashReceived(value);
+                      } else if (e.target.value === "") {
+                        setManualCashReceived(null);
+                      }
+                      // Let react-hook-form handle the value update
+                      register("cashReceived").onChange(e);
+                    }}
                   />
+                  {manualCashReceived !== null && denominationsTotal === 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Entrada manual: ${manualCashReceived.toFixed(2)}
+                    </p>
+                  )}
                 </div>
+
+                {/* Show change calculation when manual cash is entered */}
+                {manualCashReceived !== null && manualCashReceived > transactionTotal && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-orange-700 font-medium text-sm">
+                        Cambio a entregar:
+                      </span>
+                      <span className="text-orange-700 font-bold">
+                        ${(manualCashReceived - transactionTotal).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+
+
               </div>
             </CardContent>
           </Card>
@@ -763,6 +811,7 @@ export function ServicePaymentForm({
             setRequiresVerificationDigit(false);
             setValidatedCustomerName(null);
             setAccountValidationError(null);
+            setManualCashReceived(null);
             
             // Reset cash denominations
             setBills(bills.map(b => ({ ...b, quantity: 0, total: 0 })));
