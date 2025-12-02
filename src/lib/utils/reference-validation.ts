@@ -89,6 +89,15 @@ const SERVICE_VALIDATION_RULES: Record<string, ValidationRule> = {
     verificationDigitValidator: validateTelcelVerificationDigit,
     description: "Telcel reference must be 10 numeric digits with valid verification digit",
   },
+
+  // Izzi (Internet/Cable service)
+  IZZI: {
+    type: "numeric",
+    exactLength: 12,
+    pattern: /^\d{12}$/,
+    requiresVerificationDigit: false,
+    description: "Izzi reference must be 12 numeric digits",
+  },
 };
 
 /**

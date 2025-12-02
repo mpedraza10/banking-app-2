@@ -27,8 +27,8 @@ const servicePaymentSchema = z.object({
   serviceId: z.string().min(1, "Service type is required"),
   referenceNumber: z.string().min(1, "Reference number is required").regex(/^\d+$/, "La referencia debe contener solo números"),
   verificationDigit: z.string().optional().refine(
-    (val) => !val || /^\d+$/.test(val),
-    "El dígito verificador debe contener solo números"
+    (val) => !val || /^\d$/.test(val),
+    "El dígito verificador debe ser exactamente 1 número (0-9)"
   ),
   dueDate: z.string().optional().refine(
     (val) => {
@@ -374,6 +374,7 @@ export function ServicePaymentForm({
       const result = await processServicePayment(user, {
         serviceId: data.serviceId,
         referenceNumber: data.referenceNumber,
+        verificationDigit: data.verificationDigit || undefined,
         paymentAmount,
         customerId: data.customerType === "client" && data.customerAccountNumber 
           ? data.customerAccountNumber 
@@ -390,12 +391,7 @@ export function ServicePaymentForm({
 
       toast.success("Service payment processed successfully");
       
-      // Calculate change for receipt
-      const changeAmount = cashTotal > (paymentAmount + result.commissionAmount) 
-        ? cashTotal - (paymentAmount + result.commissionAmount) 
-        : 0;
-      
-      // Show receipt
+      // Show receipt - use server-calculated change amount for accuracy
       setLastPaymentData({
         transactionNumber: result.transactionNumber,
         serviceName: services.find(s => s.id === data.serviceId)?.name || "Unknown Service",
@@ -404,8 +400,8 @@ export function ServicePaymentForm({
         commission: result.commissionAmount,
         total: paymentAmount + result.commissionAmount,
         date: new Date(),
-        cashReceived: cashTotal,
-        changeAmount: changeAmount,
+        cashReceived: result.cashReceived ?? cashTotal,
+        changeAmount: result.changeAmount ?? 0,
       });
       setShowReceipt(true);
       
@@ -499,8 +495,10 @@ export function ServicePaymentForm({
                     id="verificationDigit"
                     {...register("verificationDigit")}
                     className={`mt-1 ${requiresVerificationDigit && !verificationDigit ? "border-orange-400" : ""}`}
-                    placeholder={requiresVerificationDigit ? "Requerido" : "Dígito verificador"}
-                    type="number"
+                    placeholder={requiresVerificationDigit ? "0-9" : "Dígito"}
+                    type="text"
+                    maxLength={1}
+                    pattern="[0-9]"
                     onBlur={handleValidateReference}
                   />
                   {requiresVerificationDigit && !verificationDigit && (

@@ -185,6 +185,7 @@ export interface ServiceDTO {
 export interface ServicePaymentRequest {
   serviceId: string;
   referenceNumber: string;
+  verificationDigit?: string;
   paymentAmount: number;
   customerId?: string;
   userId: string;
@@ -385,12 +386,13 @@ export async function processServicePayment(
       }
     }
 
-    // Validate reference first
+    // Validate reference first (including verification digit if provided)
     const validation = await validateServiceReference(
       user,
       paymentData.serviceId,
       paymentData.referenceNumber,
-      resolvedCustomerId
+      resolvedCustomerId,
+      paymentData.verificationDigit
     );
 
     if (!validation.isValid) {
@@ -403,18 +405,22 @@ export async function processServicePayment(
         paymentData.paymentAmount * validation.commission.rate
       : 0;
 
-    // Validate cash denominations match payment + commission
+    // Validate cash denominations - cash received must be >= payment + commission (V3 validation)
     const totalCash = paymentData.cashDenominations.reduce(
       (sum, denom) => sum + denom.amount,
       0
     );
     const totalRequired = paymentData.paymentAmount + commissionAmount;
 
-    if (Math.abs(totalCash - totalRequired) > 0.01) {
+    // V3: Cash received must be >= transaction amount (customer can pay more and receive change)
+    if (totalCash < totalRequired - 0.01) {
       throw new Error(
-        `Cash denominations (${totalCash}) must equal payment plus commission (${totalRequired})`
+        `El efectivo recibido (${totalCash.toFixed(2)}) no puede ser menor al monto de transacción (${totalRequired.toFixed(2)})`
       );
     }
+    
+    // Calculate change amount for receipt
+    const changeAmount = totalCash - totalRequired;
 
     // Get or create system user from auth user
     const systemUser = await getOrCreateSystemUser(user);
@@ -433,7 +439,7 @@ export async function processServicePayment(
         transactionStatus: "Posted",
         totalAmount: totalRequired.toString(),
         paymentMethod: "Cash",
-        customerId: paymentData.customerId || null,
+        customerId: resolvedCustomerId || null,
         userId: systemUserId,
         branchId: branchId,
         postedAt: new Date(),
@@ -481,9 +487,10 @@ export async function processServicePayment(
       .values({
         serviceId: paymentData.serviceId,
         referenceNumber: paymentData.referenceNumber,
+        verificationDigit: paymentData.verificationDigit || null,
         paymentAmount: paymentData.paymentAmount.toString(),
         commissionAmount: commissionAmount.toString(),
-        customerId: paymentData.customerId || null,
+        customerId: resolvedCustomerId || null,
         userId: systemUserId,
         branchId: branchId,
         status: "Completed",
@@ -497,6 +504,8 @@ export async function processServicePayment(
       transactionNumber: transaction.transactionNumber,
       status: payment[0].status,
       commissionAmount: commissionAmount,
+      changeAmount: changeAmount,
+      cashReceived: totalCash,
       receiptId: transaction.id,
     };
   } catch (error) {
