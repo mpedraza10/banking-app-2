@@ -7,8 +7,7 @@ import {
   date, 
   decimal, 
   integer, 
-  pgEnum,
-  json
+  pgEnum
 } from "drizzle-orm/pg-core";
 import { InferSelectModel, InferInsertModel, relations } from "drizzle-orm";
 
@@ -154,6 +153,7 @@ export const servicePayments = pgTable("service_payments", {
   id: uuid("id").primaryKey().defaultRandom(),
   serviceId: uuid("service_id").notNull().references(() => services.id),
   referenceNumber: text("reference_number").notNull(),
+  verificationDigit: text("verification_digit"),
   paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }).notNull(),
   commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).notNull(),
   dueDate: date("due_date"),

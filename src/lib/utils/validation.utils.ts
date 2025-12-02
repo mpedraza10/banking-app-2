@@ -346,7 +346,6 @@ export function validateDiestelDailyLimit(
   currentDayTotal: number,
   newPaymentAmount: number
 ): { isValid: boolean; error?: string; remainingLimit?: number } {
-  const DAILY_LIMIT_MIN = 6000;
   const DAILY_LIMIT_MAX = 8000;
 
   const projectedTotal = currentDayTotal + newPaymentAmount;

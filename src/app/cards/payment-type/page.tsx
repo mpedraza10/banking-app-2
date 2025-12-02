@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -308,8 +308,9 @@ function PaymentTypeContent() {
       return;
     }
 
-    // V2.4: Cash received must be >= payment amount
-    if (cashReceived < amount) {
+    // V2.4: Cash received must be >= payment amount (with tolerance for floating point precision)
+    // Using a small tolerance (0.01) to handle floating point comparison issues
+    if (cashReceived < amount - 0.01) {
       toast.error("La cantidad recibida por el cliente no cubre el pago a realizar");
       return;
     }
@@ -402,7 +403,7 @@ function PaymentTypeContent() {
           cardId: cardInfo.cardNumber,
           paymentType,
           paymentAmount,
-          customerId: cardInfo.customerId,
+          customerId: cardInfo.customerInternalId, // Use UUID, not display ID
           userId: user.id,
           branchId: "default-branch", // TODO: Get from user's branch
         },
@@ -710,7 +711,7 @@ function PaymentTypeContent() {
                 </CardContent>
               </Card>
 
-              {cashReceived > 0 && cashReceived < paymentAmount && (
+              {cashReceived > 0 && cashReceived < paymentAmount - 0.01 && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
@@ -725,7 +726,7 @@ function PaymentTypeContent() {
                 </Button>
                 <Button
                   onClick={handleContinueToDenominations}
-                  disabled={cashReceived < paymentAmount}
+                  disabled={cashReceived < paymentAmount - 0.01}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   Continuar

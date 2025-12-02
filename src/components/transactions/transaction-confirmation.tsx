@@ -23,7 +23,7 @@ export function TransactionConfirmation({
   onClose,
   onNewTransaction,
 }: TransactionConfirmationProps) {
-  const [showReceipt, setShowReceipt] = useState(false);
+  const [showReceipt] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return `$${amount ? amount.toFixed(2) : "0.00"}`;
@@ -108,7 +108,7 @@ export function TransactionConfirmation({
             <>
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">Detalles</h3>
-                {transaction.items.map((item, index) => (
+                {transaction.items.map((item) => (
                   <div
                     key={item.id}
                     className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"

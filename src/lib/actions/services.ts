@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { services, servicePayments, geographicCoverage, customers, transactions, transactionItems, cashDenominations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
-import { validateReference } from "@/lib/utils/reference-validation";
+import { validateReference, requiresVerificationDigit } from "@/lib/utils/reference-validation";
 import { getOrCreateSystemUser } from "@/lib/actions/users";
 
 import { cards, accounts } from "@/lib/db/schema";
@@ -49,6 +49,128 @@ async function resolveCustomerId(identifier: string): Promise<string | null> {
 
   return null;
 }
+
+/**
+ * Validate if account number or card number exists in the system
+ * Returns validation result with customer info if found
+ */
+export async function validateCustomerAccount(
+  user: User | null,
+  identifier: string
+): Promise<{
+  isValid: boolean;
+  customerId?: string;
+  customerName?: string;
+  accountType?: string;
+  message: string;
+}> {
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  if (!identifier || identifier.trim() === "") {
+    return {
+      isValid: false,
+      message: "Número de cuenta o tarjeta es requerido",
+    };
+  }
+
+  const cleanIdentifier = identifier.replace(/[\s-]/g, "");
+
+  // Validate format - must be numeric
+  if (!/^\d+$/.test(cleanIdentifier)) {
+    return {
+      isValid: false,
+      message: "Número de cuenta o tarjeta debe contener solo números",
+    };
+  }
+
+  try {
+    // Try to find by account number first
+    const accountResult = await db
+      .select({
+        id: accounts.id,
+        accountNumber: accounts.accountNumber,
+        accountType: accounts.accountType,
+      })
+      .from(accounts)
+      .where(eq(accounts.accountNumber, cleanIdentifier))
+      .limit(1);
+
+    if (accountResult.length > 0) {
+      // Find customer associated with this account via card
+      const cardWithCustomer = await db
+        .select({
+          customerId: cards.customerId,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+        })
+        .from(cards)
+        .innerJoin(customers, eq(cards.customerId, customers.id))
+        .where(eq(cards.accountId, accountResult[0].id))
+        .limit(1);
+
+      if (cardWithCustomer.length > 0) {
+        return {
+          isValid: true,
+          customerId: cardWithCustomer[0].customerId,
+          customerName: `${cardWithCustomer[0].firstName} ${cardWithCustomer[0].lastName}`,
+          accountType: accountResult[0].accountType,
+          message: "Cuenta válida",
+        };
+      }
+
+      return {
+        isValid: true,
+        accountType: accountResult[0].accountType,
+        message: "Cuenta válida (sin cliente asociado)",
+      };
+    }
+
+    // Try to find by card number
+    const cardResult = await db
+      .select({
+        cardId: cards.id,
+        cardNumber: cards.cardNumber,
+        cardType: cards.cardType,
+        customerId: cards.customerId,
+        isActive: cards.isActive,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+      })
+      .from(cards)
+      .innerJoin(customers, eq(cards.customerId, customers.id))
+      .where(eq(cards.cardNumber, cleanIdentifier))
+      .limit(1);
+
+    if (cardResult.length > 0) {
+      // Check if card is active
+      if (!cardResult[0].isActive) {
+        return {
+          isValid: false,
+          message: "Tarjeta no está activa",
+        };
+      }
+
+      return {
+        isValid: true,
+        customerId: cardResult[0].customerId,
+        customerName: `${cardResult[0].firstName} ${cardResult[0].lastName}`,
+        accountType: cardResult[0].cardType || "Tarjeta",
+        message: "Tarjeta válida",
+      };
+    }
+
+    // Not found
+    return {
+      isValid: false,
+      message: "Número de cuenta o tarjeta no encontrado en el sistema",
+    };
+  } catch (error) {
+    console.error("Validate customer account error:", error);
+    throw new Error("Error al validar cuenta del cliente");
+  }
+}
 // Service DTO
 export interface ServiceDTO {
   id: string;
@@ -63,6 +185,7 @@ export interface ServiceDTO {
 export interface ServicePaymentRequest {
   serviceId: string;
   referenceNumber: string;
+  verificationDigit?: string;
   paymentAmount: number;
   customerId?: string;
   userId: string;
@@ -126,6 +249,7 @@ export async function getAvailableServices(user: User | null) {
  * Validate service reference number format and retrieve payment details
  * Business Rules:
  * - Reference format must match service-specific validation pattern
+ * - Verification digit must be valid if required by service
  * - Returns error if payment date has passed
  * - Commission waived for BAF account holders
  */
@@ -133,7 +257,8 @@ export async function validateServiceReference(
   user: User | null,
   serviceId: string,
   referenceNumber: string,
-  customerId?: string
+  customerId?: string,
+  verificationDigit?: string
 ) {
   if (!user) {
     throw new Error("Unauthorized");
@@ -154,13 +279,18 @@ export async function validateServiceReference(
         paymentDetails: null,
         commission: null,
         message: "Service not found or inactive",
+        requiresVerificationDigit: false,
       };
     }
 
     const serviceData = service[0];
 
+    // Check if service requires verification digit
+    const needsVerificationDigit = requiresVerificationDigit(serviceData.serviceCode);
+    
     // Validate reference format using service-specific validation rules
-    const validation = validateReference(serviceData.serviceCode, referenceNumber);
+    // Include verification digit in validation if provided or required
+    const validation = validateReference(serviceData.serviceCode, referenceNumber, verificationDigit);
     if (!validation.isValid) {
       return {
         isValid: false,
@@ -168,26 +298,13 @@ export async function validateServiceReference(
         paymentDetails: null,
         commission: null,
         message: validation.message,
+        requiresVerificationDigit: needsVerificationDigit,
       };
     }
 
-    // Check if customer has BAF account for commission waiver
-    let hasBafAccount = false;
-    if (customerId) {
-      const customer = await db
-        .select({ hasBafAccount: customers.hasBafAccount })
-        .from(customers)
-        .where(eq(customers.id, customerId))
-        .limit(1);
-
-      hasBafAccount = customer.length > 0 && customer[0].hasBafAccount;
-    }
-
-    // Calculate commission
-    const commissionRate = hasBafAccount ? 0 : parseFloat(serviceData.commissionRate);
-    const fixedCommission = hasBafAccount
-      ? 0
-      : serviceData.fixedCommission
+    // Calculate commission from service configuration
+    const commissionRate = parseFloat(serviceData.commissionRate);
+    const fixedCommission = serviceData.fixedCommission
       ? parseFloat(serviceData.fixedCommission)
       : 0;
 
@@ -211,6 +328,7 @@ export async function validateServiceReference(
         rate: commissionRate,
         amount: fixedCommission,
       },
+      requiresVerificationDigit: needsVerificationDigit,
     };
   } catch (error) {
     console.error("Validate reference error:", error);
@@ -254,12 +372,13 @@ export async function processServicePayment(
       }
     }
 
-    // Validate reference first
+    // Validate reference first (including verification digit if provided)
     const validation = await validateServiceReference(
       user,
       paymentData.serviceId,
       paymentData.referenceNumber,
-      resolvedCustomerId
+      resolvedCustomerId,
+      paymentData.verificationDigit
     );
 
     if (!validation.isValid) {
@@ -272,18 +391,22 @@ export async function processServicePayment(
         paymentData.paymentAmount * validation.commission.rate
       : 0;
 
-    // Validate cash denominations match payment + commission
+    // Validate cash denominations - cash received must be >= payment + commission (V3 validation)
     const totalCash = paymentData.cashDenominations.reduce(
       (sum, denom) => sum + denom.amount,
       0
     );
     const totalRequired = paymentData.paymentAmount + commissionAmount;
 
-    if (Math.abs(totalCash - totalRequired) > 0.01) {
+    // V3: Cash received must be >= transaction amount (customer can pay more and receive change)
+    if (totalCash < totalRequired - 0.01) {
       throw new Error(
-        `Cash denominations (${totalCash}) must equal payment plus commission (${totalRequired})`
+        `El efectivo recibido (${totalCash.toFixed(2)}) no puede ser menor al monto de transacción (${totalRequired.toFixed(2)})`
       );
     }
+    
+    // Calculate change amount for receipt
+    const changeAmount = totalCash - totalRequired;
 
     // Get or create system user from auth user
     const systemUser = await getOrCreateSystemUser(user);
@@ -302,7 +425,7 @@ export async function processServicePayment(
         transactionStatus: "Posted",
         totalAmount: totalRequired.toString(),
         paymentMethod: "Cash",
-        customerId: paymentData.customerId || null,
+        customerId: resolvedCustomerId || null,
         userId: systemUserId,
         branchId: branchId,
         postedAt: new Date(),
@@ -350,9 +473,10 @@ export async function processServicePayment(
       .values({
         serviceId: paymentData.serviceId,
         referenceNumber: paymentData.referenceNumber,
+        verificationDigit: paymentData.verificationDigit || null,
         paymentAmount: paymentData.paymentAmount.toString(),
         commissionAmount: commissionAmount.toString(),
-        customerId: paymentData.customerId || null,
+        customerId: resolvedCustomerId || null,
         userId: systemUserId,
         branchId: branchId,
         status: "Completed",
@@ -366,6 +490,8 @@ export async function processServicePayment(
       transactionNumber: transaction.transactionNumber,
       status: payment[0].status,
       commissionAmount: commissionAmount,
+      changeAmount: changeAmount,
+      cashReceived: totalCash,
       receiptId: transaction.id,
     };
   } catch (error) {

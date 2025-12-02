@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/hooks/useAuth";
 import { ProtectedRoute } from "@/components/protected-route";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +21,7 @@ export default function AccountStatementPage() {
 
 function AccountStatementContent() {
   const router = useRouter();
-  const [cardInfo, setCardInfo] = useState<CardInfo | null>(() => {
+  const [cardInfo] = useState<CardInfo | null>(() => {
     // Initialize state from sessionStorage
     if (typeof window !== "undefined") {
       const storedCardInfo = sessionStorage.getItem("currentCardInfo");
@@ -39,8 +38,6 @@ function AccountStatementContent() {
       router.push("/cards/payment");
     }
   }, [cardInfo, router]);
-
-  const printRef = useRef<HTMLDivElement>(null);
 
   const handleProceedToPayment = () => {
     router.push("/cards/payment-type");
@@ -128,9 +125,9 @@ function AccountStatementContent() {
   };
 
   const handleUpdateClientData = () => {
-    // Navigate to customer search with pre-selected customer
-    if (cardInfo?.customerId) {
-      sessionStorage.setItem("preSelectedCustomerId", cardInfo.customerId);
+    // Navigate directly to customer edit with pre-selected customer (using UUID)
+    if (cardInfo?.customerInternalId) {
+      sessionStorage.setItem("preSelectedCustomerId", cardInfo.customerInternalId);
     }
     router.push("/customers/search");
   };
@@ -142,9 +139,6 @@ function AccountStatementContent() {
       </div>
     );
   }
-
-  // Mask card number (show only last 4 digits)
-  const maskedCardNumber = `**** **** **** ${cardInfo.cardNumber.slice(-4)}`;
 
   // Format currency
   const formatCurrency = (amount: number) => {
