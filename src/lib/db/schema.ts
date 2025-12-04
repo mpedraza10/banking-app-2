@@ -93,6 +93,8 @@ export const customers = pgTable("customers", {
   streetBetween: text("street_between"),
   workEmail: text("work_email"),
   cellPhone: text("cell_phone"),
+  ife: text("IFE"), // INE/IFE credential number
+  passport: text("Pasaporte"), // Passport number
   hasBafAccount: boolean("has_baf_account").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

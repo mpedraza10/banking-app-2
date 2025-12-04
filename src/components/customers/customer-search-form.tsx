@@ -107,23 +107,23 @@ const customerSearchSchema = z
       .string()
       .optional()
       .refine(
-        (val) => !val || /^\d+$/.test(val),
-        "El IFE debe contener solo dígitos"
+        (val) => !val || /^[A-Z0-9]+$/i.test(val),
+        "El INE/IFE debe contener solo caracteres alfanuméricos"
       )
       .refine(
         (val) => !val || val.length <= 20,
-        "El IFE no puede exceder 20 dígitos"
+        "El INE/IFE no puede exceder 20 caracteres"
       ),
     passport: z
       .string()
       .optional()
       .refine(
-        (val) => !val || /^\d+$/.test(val),
-        "El pasaporte debe contener solo dígitos"
+        (val) => !val || /^[A-Z0-9]+$/i.test(val),
+        "El pasaporte debe contener solo caracteres alfanuméricos"
       )
       .refine(
         (val) => !val || val.length <= 20,
-        "El pasaporte no puede exceder 20 dígitos"
+        "El pasaporte no puede exceder 20 caracteres"
       ),
   })
   .refine(
@@ -174,6 +174,18 @@ export function CustomerSearchForm({
       passport: "",
     },
   });
+
+  // Watch all form values to count filled filters
+  const watchedValues = form.watch();
+  
+  // Count how many filters are filled
+  const filledFiltersCount = useMemo(() => {
+    return Object.values(watchedValues).filter(
+      (value) => value && value.toString().trim() !== ""
+    ).length;
+  }, [watchedValues]);
+  
+  const hasMinimumFilters = filledFiltersCount >= 2;
 
   // Obtener municipios según el estado seleccionado
   const municipiosDisponibles = useMemo(() => {
@@ -613,19 +625,18 @@ export function CustomerSearchForm({
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor="ife">
-                    IFE
+                    INE/IFE
                   </FieldLabel>
                   <Input
                     {...field}
                     id="ife"
-                    placeholder="IFE"
+                    placeholder="Ej: IDMEX1234567890"
                     aria-invalid={fieldState.invalid}
                     autoComplete="off"
                     maxLength={20}
-                    inputMode="numeric"
                     onChange={(e) => {
-                      // Only allow numeric input
-                      const value = e.target.value.replace(/\D/g, "");
+                      // Allow alphanumeric input only, convert to uppercase
+                      const value = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
                       field.onChange(value);
                     }}
                   />
@@ -646,14 +657,13 @@ export function CustomerSearchForm({
                   <Input
                     {...field}
                     id="passport"
-                    placeholder="Pasaporte"
+                    placeholder="Ej: G12345678"
                     aria-invalid={fieldState.invalid}
                     autoComplete="off"
                     maxLength={20}
-                    inputMode="numeric"
                     onChange={(e) => {
-                      // Only allow numeric input
-                      const value = e.target.value.replace(/\D/g, "");
+                      // Allow alphanumeric input only, convert to uppercase
+                      const value = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
                       field.onChange(value);
                     }}
                   />
@@ -672,7 +682,7 @@ export function CustomerSearchForm({
         <Button
           type="submit"
           form="customer-search-form"
-          disabled={isSearching}
+          disabled={isSearching || !hasMinimumFilters}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6"
         >
           {isSearching ? "Buscando..." : "Buscar Cliente"}

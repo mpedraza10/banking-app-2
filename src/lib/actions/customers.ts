@@ -109,13 +109,13 @@ export async function searchCustomers(
     if (filters.taxId) {
       conditions.push(like(customers.taxId, `%${filters.taxId}%`));
     }
-    // IFE (INE) and Passport search - uses taxId field as fallback for official IDs
-    // Note: For proper implementation, these should have dedicated columns in the schema
+    // IFE (INE/IFE credential) search
     if (filters.ife) {
-      conditions.push(like(customers.taxId, `%${filters.ife}%`));
+      conditions.push(like(customers.ife, `%${filters.ife}%`));
     }
+    // Passport search
     if (filters.passport) {
-      conditions.push(like(customers.taxId, `%${filters.passport}%`));
+      conditions.push(like(customers.passport, `%${filters.passport}%`));
     }
     if (filters.street) {
       conditions.push(like(customers.street, `%${filters.street}%`));

@@ -29,19 +29,9 @@ export default function ServicePaymentPage() {
   };
 
   const handleValidateReference = async (serviceId: string, reference: string, verificationDigit?: string) => {
-    try {
-      // Validate reference with verification digit
-      const result = await validateServiceReference(user, serviceId, reference, undefined, verificationDigit);
-      
-      if (!result.isValid) {
-        throw new Error(result.message || "Invalid reference");
-      }
-      
-      return result;
-    } catch (error) {
-      console.error("Validation error:", error);
-      throw error;
-    }
+    // Validate reference with verification digit - returns result without throwing
+    const result = await validateServiceReference(user, serviceId, reference, undefined, verificationDigit);
+    return result;
   };
 
   const handleValidateCustomerAccount = async (identifier: string) => {

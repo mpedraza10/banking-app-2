@@ -224,6 +224,7 @@ export function ServicePaymentForm({
         }
         
         if (!result.isValid) {
+          // Show toast for invalid validation (no error thrown)
           toast.error(result.message || "Referencia o dígito verificador inválido");
           setFixedCommission(0);
           setCommissionRate(0);
@@ -245,8 +246,8 @@ export function ServicePaymentForm({
         toast.success("Referencia validada correctamente");
       }
     } catch (error) {
-      // V5: Show validation error for invalid reference/verification digit
-      toast.error(error instanceof Error ? error.message : "Importe, referencia o dígito verificador inválidos");
+      // Only catch unexpected errors, not validation failures
+      toast.error(error instanceof Error ? error.message : "Error inesperado al validar");
       setFixedCommission(0);
       setCommissionRate(0);
       setValue("commissionAmount", "0.00");
@@ -330,26 +331,41 @@ export function ServicePaymentForm({
       }
 
       // Get the effective cash received (manual entry or denominations)
+      // Priority: 1) manualCashReceived state, 2) denominationsTotal, 3) form field value
       const cashReceivedValue = parseFloat(data.cashReceived || "0");
-      const effectiveCashReceived = manualCashReceived !== null && manualCashReceived > 0
-        ? manualCashReceived
-        : denominationsTotal;
-
-      // V3: Validate cash received vs transaction amount
-      if (effectiveCashReceived < transactionTotal) {
-        toast.error("El monto de transacción no puede ser mayor al efectivo recibido");
-        setIsSubmitting(false);
-        return;
-      }
+      const effectiveCashReceived = 
+        manualCashReceived !== null && manualCashReceived > 0
+          ? manualCashReceived
+          : denominationsTotal > 0
+            ? denominationsTotal
+            : cashReceivedValue;
 
       // Validate that at least some cash is entered (manual or denominations)
+      // Check this FIRST before comparing amounts
       if (effectiveCashReceived <= 0) {
         toast.error("Debe ingresar el efectivo recibido");
         setIsSubmitting(false);
         return;
       }
 
-      // V4: Validate that denomination total matches cash received field (only if using denominations)
+      // V3: Validate cash received vs transaction amount
+      // Transaction amount cannot be greater than cash received
+      if (transactionTotal > effectiveCashReceived) {
+        toast.error("El monto de transacción no puede ser mayor al efectivo recibido");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // V4: Validate that denomination total matches cash received field
+      // Case 1: If denominations are entered and manual cash was also entered, they must match
+      if (denominationsTotal > 0 && manualCashReceived !== null && manualCashReceived > 0) {
+        if (Math.abs(denominationsTotal - manualCashReceived) > 0.01) {
+          toast.error("Total entrada de denominaciones no coincide con el efectivo recibido");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      // Case 2: If denominations are entered without manual cash, check against form field value
       if (denominationsTotal > 0 && manualCashReceived === null) {
         if (Math.abs(denominationsTotal - cashReceivedValue) > 0.01 && cashReceivedValue > 0) {
           toast.error("Total entrada de denominaciones no coincide");
@@ -705,25 +721,34 @@ export function ServicePaymentForm({
                   </Label>
                   <Input
                     id="cashReceived"
-                    {...register("cashReceived")}
                     className="mt-1"
                     placeholder="0.00"
                     type="number"
                     step="0.01"
+                    value={watch("cashReceived") || ""}
                     onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!Number.isNaN(value) && value > 0) {
-                        setManualCashReceived(value);
-                      } else if (e.target.value === "") {
+                      const inputValue = e.target.value;
+                      // Update react-hook-form value
+                      setValue("cashReceived", inputValue);
+                      
+                      // Update manual cash received state
+                      const numericValue = parseFloat(inputValue);
+                      if (!Number.isNaN(numericValue) && numericValue > 0) {
+                        setManualCashReceived(numericValue);
+                      } else if (inputValue === "" || inputValue === "0") {
                         setManualCashReceived(null);
                       }
-                      // Let react-hook-form handle the value update
-                      register("cashReceived").onChange(e);
                     }}
                   />
                   {manualCashReceived !== null && denominationsTotal === 0 && (
                     <p className="text-xs text-gray-500 mt-1">
                       Entrada manual: ${manualCashReceived.toFixed(2)}
+                    </p>
+                  )}
+                  {/* Warning when denominations don't match manual cash received */}
+                  {manualCashReceived !== null && manualCashReceived > 0 && denominationsTotal > 0 && Math.abs(denominationsTotal - manualCashReceived) > 0.01 && (
+                    <p className="text-red-500 text-sm mt-1 font-medium">
+                      ⚠️ Total entrada de denominaciones no coincide (${denominationsTotal.toFixed(2)} vs ${manualCashReceived.toFixed(2)})
                     </p>
                   )}
                 </div>
